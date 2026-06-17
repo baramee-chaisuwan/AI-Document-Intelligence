@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.pdf_service import (save_uploaded_file,extract_text_from_pdf)
+from app.services.gemini_service import summarize_document
 
 router = APIRouter(
     prefix="/upload",
@@ -22,8 +23,12 @@ def upload_document(file: UploadFile = File(...)):
 
     extracted_text = extract_text_from_pdf(file_path)
 
+    extracted_text = extracted_text[:5000]
+
+    summary = summarize_document(extracted_text)
+
     return {
         "filename": file.filename,
         "message": "File uploaded successfully",
-        "preview_text": extracted_text[:500]
+        "summary": summary
     }
