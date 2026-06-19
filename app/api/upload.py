@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.pdf_service import (save_uploaded_file,extract_text_from_pdf)
 from app.services.gemini_service import summarize_document
 from app.services.extraction_service import (extract_resume_data)
+from app.models.resume_model import (ResumeResponse)
 
 router = APIRouter(
     prefix="/upload",
@@ -9,7 +10,10 @@ router = APIRouter(
 )
 
 
-@router.post("/")
+@router.post(
+    "/",
+    response_model=ResumeResponse
+)
 def upload_document(file: UploadFile = File(...)):
 
     if not file.filename.endswith(".pdf"):

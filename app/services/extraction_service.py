@@ -11,13 +11,33 @@ def extract_resume_data(text):
     prompt = f"""
     Extract information from this resume.
 
-    Return JSON only.
+    Place spoken languages in "languages".
+    Do not include languages in "skills".
+    Return JSON only matching exactly this schema:
 
     {{
         "name": "",
         "skills": [],
-        "education": [],
-        "experience": []
+        "languages": [],
+
+        "education": [
+            {{
+                "institution": "",
+                "degree": "",
+                "start_date": "",
+                "end_date": ""
+            }}
+        ],
+
+        "experience": [
+            {{
+                "title": "",
+                "company": "",
+                "start_date": "",
+                "end_date": "",
+                "description": []
+            }}
+        ]
     }}
 
     Resume:
