@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List
 from typing import Optional
-
+from app.models.analysis_model import CandidateAnalysis
 
 class Education(BaseModel):
 
@@ -49,3 +49,5 @@ class ResumeResponse(BaseModel):
     summary: str
 
     resume_data: ResumeData
+
+    analysis: CandidateAnalysis

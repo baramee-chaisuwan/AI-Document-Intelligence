@@ -14,22 +14,25 @@ model = genai.GenerativeModel(
 def summarize_document(text):
 
     prompt = f"""
-    You are an AI document analyst.
+    Summarize this resume in 3-5 sentences only.
 
-    Summarize the following document and provide:
+    Focus on:
+    - Candidate background
+    - Main skills
+    - Most relevant experience
 
-    1. Main Purpose
-    2. Key Skills
-    3. Experience
-    4. Education
-    5. Important Highlights
-    6. Summary
+    Rules:
+    - Maximum 100 words
+    - No bullet points
+    - No headings
+    - No markdown
+    - Return plain text only
 
-    Document:
+    Resume:
 
     {text}
     """
 
     response = model.generate_content(prompt)
 
-    return response.text
+    return response.text.strip()

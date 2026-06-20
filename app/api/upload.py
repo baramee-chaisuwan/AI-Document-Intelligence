@@ -3,6 +3,7 @@ from app.services.pdf_service import (save_uploaded_file,extract_text_from_pdf)
 from app.services.gemini_service import summarize_document
 from app.services.extraction_service import (extract_resume_data)
 from app.models.resume_model import (ResumeResponse)
+from app.services.analyzer_service import analyze_resume
 
 router = APIRouter(
     prefix="/upload",
@@ -40,9 +41,12 @@ def upload_document(file: UploadFile = File(...)):
 
     resume_data = extract_resume_data(extracted_text)
 
+    analysis = analyze_resume(resume_data)
+
     return {
         "filename": file.filename,
         "message": "File uploaded successfully",
         "summary": summary,
-        "resume_data": resume_data
+        "resume_data": resume_data,
+        "analysis": analysis
     }
