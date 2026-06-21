@@ -61,4 +61,6 @@ def extract_resume_data(text):
 
     result = result.strip()
 
+    print(result)
+
     return json.loads(result)
