@@ -33,6 +33,20 @@ def summarize_document(text):
     {text}
     """
 
-    response = model.generate_content(prompt)
+    try:
 
-    return response.text.strip()
+        response = model.generate_content(prompt)
+
+        return response.text.strip()
+
+    except Exception as e:
+
+        print("SUMMARY ERROR:", e)
+
+        if "429" in str(e):
+            return "Rate limit exceeded"
+
+        if "API key" in str(e):
+            return "Invalid API key"
+
+        return "Summary generation failed"

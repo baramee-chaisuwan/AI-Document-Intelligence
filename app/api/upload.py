@@ -14,7 +14,10 @@ router = APIRouter(prefix="/upload",tags=["Document Upload"])
     "/",
     response_model=ResumeResponse
 )
-def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
 
     if not file.filename.endswith(".pdf"):
         raise HTTPException(
@@ -24,7 +27,7 @@ def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db))
 
     file_path = f"uploads/{file.filename}"
 
-    save_uploaded_file(file,file_path)
+    save_uploaded_file(file, file_path)
 
     extracted_text = extract_text_from_pdf(file_path)
 
@@ -32,28 +35,25 @@ def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db))
 
     summary = summarize_document(extracted_text)
 
-    if not summary:
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to generate summary"
-        )
-
     resume_data = extract_resume_data(extracted_text)
 
     analysis = analyze_resume(resume_data)
 
-    candidate = Candidate(
-        name=resume_data["name"],
-        summary=summary,
-        candidate_level=analysis["candidate_level"],
-        skill_score=analysis["skill_score"]
-    )
+    if (
+        resume_data["name"] != "Unknown"
+        and analysis["candidate_level"] != "Unknown"
+    ):
 
-    db.add(candidate)
+        candidate = Candidate(
+            name=resume_data["name"],
+            summary=summary,
+            candidate_level=analysis["candidate_level"],
+            skill_score=analysis["skill_score"]
+        )
 
-    db.commit()
-
-    db.refresh(candidate)
+        db.add(candidate)
+        db.commit()
+        db.refresh(candidate)
 
     return {
         "filename": file.filename,

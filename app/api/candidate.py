@@ -5,6 +5,8 @@ from sqlalchemy import desc, func
 from app.database.database import get_db
 from app.database.models import Candidate
 from app.models.candidate_model import CandidateResponse
+from app.models.candidate_update_model import CandidateUpdate
+from app.models.candidate_stats_model import (CandidateStatsResponse)
 
 router = APIRouter(
     prefix="/candidates",
@@ -68,7 +70,7 @@ def search_candidates(
     )
 
 
-@router.get("/stats")
+@router.get("/stats",response_model=CandidateStatsResponse)
 def get_candidate_stats(
     db: Session = Depends(get_db)
 ):
@@ -132,5 +134,62 @@ def get_candidate(
             status_code=404,
             detail="Candidate not found"
         )
+
+    return candidate
+
+@router.delete("/{candidate_id}")
+def delete_candidate(
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+
+    candidate = (
+        db.query(Candidate)
+        .filter(Candidate.id == candidate_id)
+        .first()
+    )
+
+    if not candidate:
+        raise HTTPException(
+            status_code=404,
+            detail="Candidate not found"
+        )
+
+    db.delete(candidate)
+    db.commit()
+
+    return {
+        "message": "Candidate deleted successfully"
+    }
+
+@router.put("/{candidate_id}",response_model=CandidateResponse)
+def update_candidate(
+    candidate_id: int,
+    candidate_data: CandidateUpdate,
+    db: Session = Depends(get_db)
+):
+
+    candidate = (
+        db.query(Candidate)
+        .filter(Candidate.id == candidate_id)
+        .first()
+    )
+
+    if not candidate:
+        raise HTTPException(
+            status_code=404,
+            detail="Candidate not found"
+        )
+
+    candidate.candidate_level = (
+        candidate_data.candidate_level
+    )
+
+    candidate.skill_score = (
+        candidate_data.skill_score
+    )
+
+    db.commit()
+    db.refresh(candidate)
 
     return candidate

@@ -13,6 +13,7 @@ def extract_resume_data(text):
 
     Place spoken languages in "languages".
     Do not include languages in "skills".
+
     Return JSON only matching exactly this schema:
 
     {{
@@ -45,22 +46,40 @@ def extract_resume_data(text):
     {text}
     """
 
-    response = model.generate_content(prompt)
+    try:
 
-    result = response.text
+        response = model.generate_content(prompt)
 
-    result = result.replace(
-    "```json",
-    ""
-    )
+        result = response.text
 
-    result = result.replace(
-    "```",
-    ""
-    )
+        result = result.replace(
+            "```json",
+            ""
+        )
 
-    result = result.strip()
+        result = result.replace(
+            "```",
+            ""
+        )
 
-    print(result)
+        result = result.strip()
 
-    return json.loads(result)
+        return json.loads(result)
+
+    except Exception as e:
+
+        print("EXTRACTION ERROR:", e)
+
+        if "429" in str(e):
+            print("RATE LIMIT DETECTED")
+
+        if "API key" in str(e):
+            print("INVALID API KEY")
+
+        return {
+            "name": "Unknown",
+            "skills": [],
+            "languages": [],
+            "education": [],
+            "experience": []
+        }

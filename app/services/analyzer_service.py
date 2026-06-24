@@ -36,20 +36,34 @@ def analyze_resume(resume_data):
     {resume_data}
     """
 
-    response = model.generate_content(prompt)
+    try:
 
-    result = response.text
+        response = model.generate_content(prompt)
 
-    result = result.replace(
-        "```json",
-        ""
-    )
+        result = response.text
 
-    result = result.replace(
-        "```",
-        ""
-    )
+        result = result.replace(
+            "```json",
+            ""
+        )
 
-    result = result.strip()
+        result = result.replace(
+            "```",
+            ""
+        )
 
-    return json.loads(result)
+        result = result.strip()
+
+        return json.loads(result)
+
+    except Exception as e:
+
+        print("ANALYSIS ERROR:", e)
+
+        return {
+            "candidate_level": "Unknown",
+            "skill_score": 0,
+            "recommended_roles": [],
+            "strengths": [],
+            "improvement_areas": []
+        }
