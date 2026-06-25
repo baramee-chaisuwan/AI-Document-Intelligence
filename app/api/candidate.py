@@ -4,15 +4,14 @@ from sqlalchemy import desc, func
 
 from app.database.database import get_db
 from app.database.models import Candidate
-from app.models.candidate_model import CandidateResponse
+from app.models.candidate_model import CandidateResponse, RankingResponse
 from app.models.candidate_update_model import CandidateUpdate
-from app.models.candidate_stats_model import (CandidateStatsResponse)
+from app.models.candidate_stats_model import CandidateStatsResponse
 
 router = APIRouter(
     prefix="/candidates",
     tags=["Candidates"]
 )
-
 
 @router.get(
     "/",
@@ -23,7 +22,6 @@ def get_candidates(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-
     candidates = (
         db.query(Candidate)
         .order_by(desc(Candidate.skill_score))
@@ -33,7 +31,6 @@ def get_candidates(
     )
 
     return candidates
-
 
 @router.get(
     "/search",
@@ -45,7 +42,6 @@ def search_candidates(
     min_score: int | None = None,
     db: Session = Depends(get_db)
 ):
-
     query = db.query(Candidate)
 
     if name:
@@ -58,7 +54,7 @@ def search_candidates(
             Candidate.candidate_level == level
         )
 
-    if min_score:
+    if min_score is not None:
         query = query.filter(
             Candidate.skill_score >= min_score
         )
@@ -69,59 +65,43 @@ def search_candidates(
         .all()
     )
 
+@router.get(
+    "/stats",
+    response_model=CandidateStatsResponse
+)
+def get_candidate_stats(db: Session = Depends(get_db)):
 
-@router.get("/stats",response_model=CandidateStatsResponse)
-def get_candidate_stats(
-    db: Session = Depends(get_db)
-):
-
-    total_candidates = (
-        db.query(Candidate)
-        .count()
-    )
+    total_candidates = db.query(Candidate).count()
 
     average_skill_score = (
-        db.query(
-            func.avg(Candidate.skill_score)
-        )
+        db.query(func.avg(Candidate.skill_score))
         .scalar()
     )
 
     entry_level_count = (
         db.query(Candidate)
-        .filter(
-            Candidate.candidate_level == "Entry-Level"
-        )
+        .filter(Candidate.candidate_level == "Entry-Level")
         .count()
     )
 
     junior_count = (
         db.query(Candidate)
-        .filter(
-            Candidate.candidate_level == "Junior"
-        )
+        .filter(Candidate.candidate_level == "Junior")
         .count()
     )
 
     return {
         "total_candidates": total_candidates,
-        "average_skill_score": round(
-            average_skill_score or 0,
-            2
-        ),
+        "average_skill_score": round(average_skill_score or 0, 2),
         "entry_level_count": entry_level_count,
         "junior_count": junior_count
     }
 
-
 @router.get(
-    "/{candidate_id}",
+    "/{candidate_id:int}",
     response_model=CandidateResponse
 )
-def get_candidate(
-    candidate_id: int,
-    db: Session = Depends(get_db)
-):
+def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
 
     candidate = (
         db.query(Candidate)
@@ -137,11 +117,8 @@ def get_candidate(
 
     return candidate
 
-@router.delete("/{candidate_id}")
-def delete_candidate(
-    candidate_id: int,
-    db: Session = Depends(get_db)
-):
+@router.delete("/{candidate_id:int}")
+def delete_candidate(candidate_id: int, db: Session = Depends(get_db)):
 
     candidate = (
         db.query(Candidate)
@@ -162,7 +139,10 @@ def delete_candidate(
         "message": "Candidate deleted successfully"
     }
 
-@router.put("/{candidate_id}",response_model=CandidateResponse)
+@router.put(
+    "/{candidate_id:int}",
+    response_model=CandidateResponse
+)
 def update_candidate(
     candidate_id: int,
     candidate_data: CandidateUpdate,
@@ -181,15 +161,34 @@ def update_candidate(
             detail="Candidate not found"
         )
 
-    candidate.candidate_level = (
-        candidate_data.candidate_level
-    )
+    if candidate_data.skill_score is not None:
+        candidate.skill_score = candidate_data.skill_score
 
-    candidate.skill_score = (
-        candidate_data.skill_score
-    )
+    if candidate_data.candidate_level:
+        candidate.candidate_level = candidate_data.candidate_level
 
     db.commit()
     db.refresh(candidate)
 
     return candidate
+
+@router.get(
+    "/ranking",
+    response_model=list[RankingResponse]
+)
+def get_ranking(
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+
+    candidates = (
+        db.query(Candidate)
+        .order_by(
+            Candidate.skill_score.desc(),
+            Candidate.id.asc()
+        )
+        .limit(limit)
+        .all()
+    )
+
+    return candidates

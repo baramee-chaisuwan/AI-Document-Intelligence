@@ -1,11 +1,6 @@
-from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
-from sqlalchemy import Text
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
 from app.database.database import Base
-from sqlalchemy import DateTime
 from datetime import datetime
-
 
 class Candidate(Base):
 
@@ -22,3 +17,11 @@ class Candidate(Base):
     skill_score = Column(Integer)
 
     created_at = Column(DateTime,default=datetime.utcnow)
+
+    score_breakdown = Column(JSON, nullable=True)
+
+    rule_score = Column(Integer, default=0)
+
+    ai_score = Column(Integer, default=0)
+
+    ai_status = Column(String, default="success")

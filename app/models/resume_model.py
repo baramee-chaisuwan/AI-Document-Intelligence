@@ -51,3 +51,9 @@ class ResumeResponse(BaseModel):
     resume_data: ResumeData
 
     analysis: CandidateAnalysis
+
+class DuplicateResponse(BaseModel):
+    status: str = "duplicate"
+    message: str
+    existing_id: int
+    filename: str
