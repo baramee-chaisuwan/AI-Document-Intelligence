@@ -16,7 +16,7 @@ def check_duplicate(db, name: str):
         .first()
     )
 
-router = APIRouter(prefix="/upload",tags=["Document Upload"])
+router = APIRouter(prefix="/upload",tags=["Resume Upload"])
 
 @router.post(
     "/",
