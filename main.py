@@ -6,6 +6,9 @@ from app.database.database import engine, Base
 import app.database.models
 from app.api.candidate import router as candidate_router
 from app.api.export import router as export_router
+from dotenv import load_dotenv
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 

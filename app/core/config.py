@@ -1,8 +1,6 @@
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
+APP_NAME = os.getenv("APP_NAME", "AI Resume Intelligence")
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 
-APP_NAME = os.getenv("APP_NAME")
-APP_VERSION = os.getenv("APP_VERSION")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
