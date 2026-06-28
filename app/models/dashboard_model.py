@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 class DashboardSummaryResponse(BaseModel):
     total_candidates: int
@@ -27,3 +28,8 @@ class TopCandidateResponse(BaseModel):
     id: int
     name: str
     skill_score: int
+
+class RecentCandidateResponse(BaseModel):
+    id: int
+    name: str
+    created_at: datetime

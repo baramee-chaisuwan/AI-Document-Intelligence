@@ -12,6 +12,11 @@ from app.models.candidate_model import CandidateResponse, RankingResponse
 from app.models.candidate_stats_model import CandidateStatsResponse
 from app.models.candidate_update_model import CandidateUpdate
 from app.models.dashboard_model import DashboardSummaryResponse, TopCandidateResponse
+from app.models.dashboard_analytics_model import (
+    LevelDistributionResponse,
+    ScoreDistributionResponse,
+)
+from app.models.dashboard_model import RecentCandidateResponse
 
 router = APIRouter(
     prefix="/candidates",
@@ -280,6 +285,80 @@ def update_candidate(
 
     return candidate
 
+@router.get(
+    "/dashboard/score-distribution",
+    response_model=list[ScoreDistributionResponse],
+    summary="Get score distribution"
+)
+def score_distribution(db: Session = Depends(get_db)):
+    candidates = db.query(Candidate.skill_score).all()
+
+    ranges = {
+        "0-20": 0,
+        "21-40": 0,
+        "41-60": 0,
+        "61-80": 0,
+        "81-100": 0,
+    }
+
+    for candidate in candidates:
+        score = candidate.skill_score
+
+        if score <= 20:
+            ranges["0-20"] += 1
+        elif score <= 40:
+            ranges["21-40"] += 1
+        elif score <= 60:
+            ranges["41-60"] += 1
+        elif score <= 80:
+            ranges["61-80"] += 1
+        else:
+            ranges["81-100"] += 1
+
+    return [
+        {"score_range": key, "count": value}
+        for key, value in ranges.items()
+        if value > 0
+    ]
+
+@router.get(
+    "/dashboard/level-distribution",
+    response_model=list[LevelDistributionResponse],
+    summary="Get level distribution"
+)
+def level_distribution(db: Session = Depends(get_db)):
+    levels = (
+        db.query(
+            Candidate.candidate_level,
+            func.count(Candidate.id),
+        )
+        .group_by(Candidate.candidate_level)
+        .all()
+    )
+
+    return [
+        {"level": level, "count": count}
+        for level, count in levels
+    ]
+
+@router.get(
+    "/dashboard/recent-candidates",
+    response_model=list[RecentCandidateResponse],
+    summary="Get recent candidates"
+)
+def recent_candidates(
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+        return (
+        db.query(Candidate)
+        .order_by(
+            Candidate.created_at.desc()
+        )
+        .limit(limit)
+        .all()
+    )
+    
 @router.get(
     "/{candidate_id:int}",
     response_model=CandidateResponse,
