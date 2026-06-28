@@ -1,12 +1,13 @@
 from fastapi import FastAPI
-from app.core.config import APP_NAME, APP_VERSION
+from dotenv import load_dotenv
+
+from app.database.database import engine, Base
+import app.database.models   
+
 from app.api.health import router as health_router
 from app.api.upload import router as upload_router
-from app.database.database import engine, Base
-import app.database.models
 from app.api.candidate import router as candidate_router
 from app.api.export import router as export_router
-from dotenv import load_dotenv
 
 load_dotenv()
 

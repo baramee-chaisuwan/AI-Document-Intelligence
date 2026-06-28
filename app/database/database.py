@@ -1,13 +1,9 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///resume.db"
+DATABASE_URL = "postgresql://postgres:1234@host.docker.internal:5432/resume_db"
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine = create_engine(DATABASE_URL,pool_pre_ping=True)
 
 SessionLocal = sessionmaker(
     autocommit=False,
