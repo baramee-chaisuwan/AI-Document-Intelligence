@@ -37,6 +37,8 @@ SQLAlchemy ORM
 PostgreSQL (Docker)
 ```
 
+---
+
 ## Processing Flow
 
 ```text
@@ -60,6 +62,8 @@ Store in Database
         ↓
 Expose via REST API
 ```
+
+---
 
 ## Features
 
@@ -304,6 +308,8 @@ pip uvicorn main:app --reload
 http://127.0.0.1:8000/docs
 ```
 
+---
+
 ## Key Learnings
 
 * FastAPI backend development
@@ -317,7 +323,7 @@ http://127.0.0.1:8000/docs
 * Error handling with custom exceptions
 * Docker-based development environment
 
-```
+---
 
 ## Future Improvements (v2.0)
 
@@ -330,7 +336,7 @@ http://127.0.0.1:8000/docs
 * Frontend dashboard (React)
 * CI/CD pipeline
 
-```
+---
 
 ## Project Status
 
