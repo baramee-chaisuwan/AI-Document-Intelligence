@@ -38,7 +38,6 @@ PostgreSQL (Docker)
 ```
 
 ```
-
 ```
 
 ## Processing Flow
@@ -66,7 +65,6 @@ Expose via REST API
 ```
 
 ```
-
 ```
 ## Features
 
@@ -312,7 +310,6 @@ http://127.0.0.1:8000/docs
 ```
 
 ```
-
 ```
 
 ## Key Learnings
