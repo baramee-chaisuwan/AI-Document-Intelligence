@@ -40,6 +40,7 @@ PostgreSQL (Docker)
 ```
 
 ## Processing Flow
+
 ```text
 Upload Resume (PDF)
         ↓
