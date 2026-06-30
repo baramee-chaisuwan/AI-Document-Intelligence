@@ -39,6 +39,8 @@ PostgreSQL (Docker)
 
 ```
 
+```
+
 ## Processing Flow
 
 ```text
@@ -61,6 +63,8 @@ Combined Final Score
 Store in Database
         ↓
 Expose via REST API
+```
+
 ```
 
 ```
@@ -305,6 +309,8 @@ pip uvicorn main:app --reload
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
 ```
 
 ```
