@@ -1,13 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 
 from app.database.database import engine, Base
-import app.database.models   
+import app.database.models
 
 from app.api.health import router as health_router
 from app.api.upload import router as upload_router
 from app.api.candidate import router as candidate_router
 from app.api.export import router as export_router
+from app.api.dashboard import router as dashboard_router
+
+from fastapi.responses import JSONResponse
+from app.core.exceptions import NotFoundError
 
 load_dotenv()
 
@@ -32,4 +36,12 @@ Features:
 app.include_router(health_router)
 app.include_router(upload_router)
 app.include_router(candidate_router)
+app.include_router(dashboard_router)
 app.include_router(export_router)
+
+@app.exception_handler(NotFoundError)
+def not_found_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": exc.message},
+    )
