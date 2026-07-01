@@ -1,8 +1,8 @@
-# AI Document Intelligence
+# AI Document Intelligence (ATS Resume Screening System)
 
-AI-powered Resume Screening System built with FastAPI, Gemini AI, SQLAlchemy, PostgreSQL, and Docker.
+AI-powered Resume Screening System built with FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, and Docker.
 
-This project is a mini Applicant Tracking System (ATS) that processes PDF resumes, extracts structured candidate information, analyzes skills using rule-based + AI scoring, and provides APIs for ranking, search, and analytics.
+This project is a lightweight Applicant Tracking System (ATS) that automates resume processing, extracts structured candidate data, and performs AI-assisted evaluation and ranking.
 
 ---
 
@@ -18,6 +18,15 @@ The system automates resume processing and candidate evaluation through an AI pi
 * Compute candidate scores (rule-based + AI hybrid)
 * Store results in PostgreSQL
 * Provide search, ranking, and analytics APIs
+
+---
+
+### AI Analysis
+
+* Resume summarization using Gemini LLM
+* Skill inference from unstructured text
+* Candidate profiling (Junior / Mid / Senior)
+* AI-based semantic evaluation
 
 ---
 
@@ -132,24 +141,178 @@ Expose via REST API
 ```text
 AI-Document-Intelligence/
 │
+├── .github/
+│   └── workflows/        # CI/CD (GitHub Actions)
+│
 ├── app/
-│   ├── api/              # REST endpoints
+│   ├── api/              # REST API endpoints
 │   ├── core/             # config & exceptions
 │   ├── database/         # DB connection & models
-│   ├── models/          # Pydantic schemas
-│   ├── repositories/    # data access layer
-│   └── services/        # business logic + AI
+│   ├── models/           # Pydantic schemas
+│   ├── repositories/     # data access layer
+│   └── services/         # business logic + AI layer
 │
 ├── alembic/             # database migrations
-├── uploads/             # uploaded PDF files
+├── alembic.ini          # migration config
+│
 ├── main.py              # FastAPI entry point
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── README.md
+├── test/                # test cases (pytest)
+├── pytest.ini           # test configuration
+│
+├── docker-compose.yml   # multi-container setup
+├── Dockerfile           # container build
+├── requirements.txt     # dependencies
+│
+└── .gitignore
 ```
 
 ---
+
+## Quick Start
+
+### 1.Clone project
+
+```bash
+git clone https://github.com/baramee-chaisuwan/AI-Document-Intelligence.git
+cd AI-Document-Intelligence
+```
+
+### 2.Setup environment
+
+```bash
+cp .env.example .env
+```
+
+### .env example
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/resume_db
+GEMINI_API_KEY=your_api_key_here
+```
+
+### 3.Start PostgreSQL (Docker)
+
+This project requires Docker to run PostgreSQL database.
+
+### Start database
+
+```bash
+docker compose up -d
+```
+
+or
+
+```bash
+docker run -d \
+  --name resume-postgres \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=resume_db \
+  postgres
+```
+
+### 4.Run system (Docker recommended)
+
+```bash
+docker compose up --build
+```
+
+### OR Run Locally
+
+```bash
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### 5.API documentation
+
+```http
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## Testing
+
+This project includes automated testing using pytest.
+
+### Run tests locally
+
+```bash
+pytest -v
+```
+
+### Test coverage includes:
+
+* API endpoint validation
+* Database operations
+* Service layer logic
+* Resume upload pipeline
+
+---
+
+## ## CI Pipeline (GitHub Actions)
+
+The project includes a fully automated CI pipeline using GitHub Actions.
+
+---
+
+## CI Steps
+
+### 1. PostgreSQL Service (Test DB)
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: resume_db
+```
+
+### 2. Environment Variables (GitHub Actions)
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/resume_db
+GEMINI_API_KEY=your_api_key
+```
+
+### Required GitHub Secrets
+
+- GEMINI_API_KEY → Google Gemini API key
+
+### 3. Pipeline Steps
+
+* Checkout repository
+* Setup Python
+* Install dependencies
+* Run database migrations (Alembic)
+* Run tests (pytest)
+
+```bash
+alembic upgrade head
+pytest -v
+```
+
+---
+
+## CI Status
+
+* Lint-free build
+* Database migration test
+* API test execution
+* Service layer validation
+
+---
+
+## CI Badge
+
+![CI](https://github.com/baramee-chaisuwan/AI-Document-Intelligence/actions/workflows/test.yml/badge.svg)
+
+---
+
 
 ## API Endpoints
 
@@ -242,6 +405,10 @@ Hybrid scoring approach:
 * AI-based scoring using Gemini
 * Combined final score for ranking
 
+```text id="score_formula"
+Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
+```
+
 ```json
 {
   "rule_score": 70,
@@ -264,52 +431,6 @@ Hybrid scoring approach:
 
 ---
 
-## Docker Setup (Required)
-
-This project requires Docker to run PostgreSQL database.
-
-### Start database
-
-```bash
-docker compose up -d
-```
-
-or
-
-```bash
-docker run -d \
-  --name resume-postgres \
-  -p 5432:5432 \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=resume_db \
-  postgres
-```
-
----
-
-## Run Project
-
-### Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Start server
-
-```bash
-pip uvicorn main:app --reload
-```
-
-### API documentation
-
-```text
-http://127.0.0.1:8000/docs
-```
-
----
-
 ## Key Learnings
 
 * FastAPI backend development
@@ -325,22 +446,22 @@ http://127.0.0.1:8000/docs
 
 ---
 
-## Future Improvements (v2.0)
+## Future Improvements 
 
 * JWT authentication system
-* Role-based access control
-* Redis caching layer
+* Role-based access control (RBAC)
+* Redis caching
 * Background task processing (Celery)
-* Job description matching system
+* Job description matching
 * Vector database integration (ChromaDB)
-* Frontend dashboard (React)
-* CI/CD pipeline
+* React dashboard
+* Automatic deployment (Render / Railway / AWS)
 
 ---
 
 ## Project Status
 
-Version 1.0 Completed
+Status: Completed (v1.0)
 
 Includes:
 
