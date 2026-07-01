@@ -21,7 +21,7 @@ The system automates resume processing and candidate evaluation through an AI pi
 
 ---
 
-### AI Analysis
+## AI Analysis
 
 * Resume summarization using Gemini LLM
 * Skill inference from unstructured text
@@ -459,18 +459,26 @@ Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
 
 ## Project Status
 
-Status: Completed (v1.0)
+**Status:** Version 1.0 Completed
 
-Includes:
+### Implemented Features
 
-* Resume upload and processing pipeline
-* AI-powered resume analysis (Gemini)
-* Candidate management system (CRUD)
+* Resume upload and PDF processing
+* AI-powered resume analysis using Gemini
+* Candidate management (CRUD)
 * Search and ranking system
-* Dashboard analytics module
-* CSV export functionality
-* Duplicate detection system
-* Hybrid scoring system
-* Clean architecture (Router → Service → Repository)
-* PostgreSQL via Docker
-* Custom exception handling layer
+* Dashboard analytics
+* CSV export
+* Duplicate detection
+* Hybrid scoring (Rule-based + AI)
+* Clean Architecture (Router → Service → Repository)
+* PostgreSQL with Docker
+* Alembic database migrations
+* Automated testing with pytest
+* CI pipeline using GitHub Actions
+* Deployment on Render
+
+### Live Demo
+
+* API: https://ai-document-intelligence-bs16.onrender.com
+* Swagger UI: https://ai-document-intelligence-bs16.onrender.com/docs
