@@ -15,7 +15,10 @@ from app.core.exceptions import NotFoundError
 
 load_dotenv()
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print("DB not ready yet:", e)
 
 app = FastAPI(
     title="AI Resume Intelligence API",
