@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 
 from app.database.database import engine, Base
@@ -10,7 +11,6 @@ from app.api.candidate import router as candidate_router
 from app.api.export import router as export_router
 from app.api.dashboard import router as dashboard_router
 
-from fastapi.responses import JSONResponse
 from app.core.exceptions import NotFoundError
 
 load_dotenv()
@@ -35,6 +35,10 @@ Features:
 """,
     version="1.0.0"
 )
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
 app.include_router(health_router)
 app.include_router(upload_router)
