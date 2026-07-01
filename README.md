@@ -252,11 +252,9 @@ pytest -v
 
 ---
 
-## ## CI Pipeline (GitHub Actions)
+## CI Pipeline (GitHub Actions)
 
 The project includes a fully automated CI pipeline using GitHub Actions.
-
----
 
 ## CI Steps
 
