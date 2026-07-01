@@ -142,7 +142,7 @@ Expose via REST API
 AI-Document-Intelligence/
 │
 ├── .github/
-│   └── workflows/        # CI/CD (GitHub Actions)
+│   └── workflows/        # GitHub Actions CI
 │
 ├── app/
 │   ├── api/              # REST API endpoints
@@ -311,6 +311,13 @@ pytest -v
 
 ---
 
+## Deployment
+
+The application is deployed on Render.
+
+Every push to the `main` branch automatically triggers a new deployment through Render's GitHub integration.
+
+---
 
 ## API Endpoints
 
@@ -453,7 +460,7 @@ Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
 * Job description matching
 * Vector database integration (ChromaDB)
 * React dashboard
-* Automatic deployment (Render / Railway / AWS)
+* Multi-environment deployment (Staging / Production)
 
 ---
 
