@@ -511,7 +511,7 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 
 ### Search Candidates API
 
-![Search API](assets/screenshots/search-api.png)
+![Search API](assets/screenshots/search-candidates-api.png)
 
 ### Ranking API
 
