@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
-from app.services.pdf_service import (save_uploaded_file,extract_text_from_pdf)
+from app.services.pdf_service import extract_text_from_pdf
 from app.services.gemini_service import summarize_document
 from app.services.extraction_service import extract_resume_data
 from app.services.analyzer_service import analyze_resume
