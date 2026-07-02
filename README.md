@@ -1,4 +1,4 @@
-# AI Document Intelligence (ATS Resume Screening System)
+# AI-powered Resume Screening System (ATS) built with FastAPI, PostgreSQL, Gemini AI, Docker, SQLAlchemy, and GitHub Actions
 
 AI-powered Resume Screening System built with FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, and Docker.
 
@@ -33,18 +33,22 @@ The system automates resume processing and candidate evaluation through an AI pi
 ## Architecture
 
 ```text
-Client (Swagger / Postman)
-        ↓
-FastAPI Router Layer
-        ↓
-Service Layer (Business Logic)
-        ↓
-Repository Layer (Database Access)
-        ↓
+Client
+   ↓
+FastAPI Router
+   ↓
+Service Layer (Business + AI)
+   ↓
+Repository Layer
+   ↓
 SQLAlchemy ORM
-        ↓
-PostgreSQL (Docker)
+   ↓
+PostgreSQL
 ```
+
+## Architecture Diagram
+
+![System Architecture](assets/screenshots/architecture.png)
 
 ---
 
@@ -65,7 +69,7 @@ Rule-based Scoring
         ↓
 AI Scoring
         ↓
-Combined Final Score
+Combined Skill Score
         ↓
 Store in Database
         ↓
@@ -115,24 +119,27 @@ Expose via REST API
 
 ## Tech Stack
 
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571)
+![Docker](https://img.shields.io/badge/docker-blue)
+
 ### Backend
+* Python 3.13
+* FastAPI (REST API Framework)
+* SQLAlchemy (ORM)
+* PostgreSQL (Relational Database)
+* Pydantic (Data Validation)
 
-* Python
-* FastAPI
-* SQLAlchemy
-* PostgreSQL
-* Pydantic
+### AI & Document Processing
+* Google Gemini API (LLM-based Resume Analysis)
+* PyMuPDF (PDF Text Extraction)
 
-### AI & Processing
-
-* Google Gemini API
-* PyMuPDF
-
-### Infrastructure
-
-* Docker
-* Uvicorn
-* Git / GitHub
+### Infrastructure & DevOps
+* Docker (Containerization)
+* Uvicorn (ASGI Server)
+* GitHub Actions (Continuous Integration)
+* Render (Cloud Deployment)
+* Git / GitHub (Version Control)
 
 ---
 
@@ -142,7 +149,7 @@ Expose via REST API
 AI-Document-Intelligence/
 │
 ├── .github/
-│   └── workflows/        # GitHub Actions CI
+│   └── workflows/        # GitHub Actions (CI)
 │
 ├── app/
 │   ├── api/              # REST API endpoints
@@ -298,9 +305,9 @@ pytest -v
 
 ## CI Status
 
-* Lint-free build
-* Database migration test
-* API test execution
+* Dependency installation
+* Database migration 
+* API tests
 * Service layer validation
 
 ---
@@ -315,7 +322,7 @@ pytest -v
 
 The application is deployed on Render.
 
-Every push to the `main` branch automatically triggers a new deployment through Render's GitHub integration.
+Render is connected to the GitHub repository and automatically deploys the latest version whenever changes are pushed to the main branch.
 
 ---
 
@@ -404,21 +411,21 @@ Exports candidate data as a CSV file.
 
 ## Scoring System
 
-Hybrid scoring approach:
+Hybrid candidate scoring approach:
 
 * Rule-based scoring from extracted skills and experience
 * AI-based scoring using Gemini
-* Combined final score for ranking
+* Combined skill score for ranking
 
 ```text id="score_formula"
-Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
+Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 ```
 
 ```json
 {
   "rule_score": 70,
   "ai_score": 78,
-  "final_score": 74
+  "skill_score": 74
 }
 ```
 
@@ -445,9 +452,11 @@ Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
 * AI integration using Gemini API
 * Resume parsing pipeline
 * Duplicate detection system
-* Hybrid scoring system
+* Hybrid candidate scoring system
 * Error handling with custom exceptions
-* Docker-based development environment
+* Docker-based deployment workflow
+* CI using GitHub Actions
+* Cloud deployment with Render
 
 ---
 
@@ -477,7 +486,7 @@ Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
 * Dashboard analytics
 * CSV export
 * Duplicate detection
-* Hybrid scoring (Rule-based + AI)
+* Hybrid candidate scoring (Rule-based + AI)
 * Clean Architecture (Router → Service → Repository)
 * PostgreSQL with Docker
 * Alembic database migrations
@@ -485,7 +494,37 @@ Final Score = (0.6 × Rule Score) + (0.4 × AI Score)
 * CI pipeline using GitHub Actions
 * Deployment on Render
 
+---
+
 ### Live Demo
 
 * API: https://ai-document-intelligence-bs16.onrender.com
 * Swagger UI: https://ai-document-intelligence-bs16.onrender.com/docs
+
+---
+
+## API Screenshots
+
+### Upload Resume API
+
+![Upload API](assets/screenshots/upload-api.png)
+
+### Search Candidates API
+
+![Search API](assets/screenshots/search-api.png)
+
+### Ranking API
+
+![Ranking API](assets/screenshots/ranking-api.png)
+
+### Dashboard Summary
+
+![Dashboard Summary](assets/screenshots/dashboard-summary.png)
+
+### Top Candidates
+
+![Top Candidates](assets/screenshots/top-candidates.png)
+
+### Export CSV API
+
+![CSV Export](assets/screenshots/csv-export.png)

@@ -1,7 +1,14 @@
 from pydantic import BaseModel
 
+
+class LevelDistribution(BaseModel):
+    entry_level: int
+    junior: int
+    mid_level: int
+    senior: int
+
+
 class CandidateStatsResponse(BaseModel):
     total_candidates: int
     average_skill_score: float
-    entry_level_count: int
-    junior_count: int
+    level_distribution: LevelDistribution

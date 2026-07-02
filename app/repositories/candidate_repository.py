@@ -88,7 +88,7 @@ def get_ranking(
 from sqlalchemy import func
 
 def get_candidate_stats(
-    db: Session,
+    db: Session
 ):
     total_candidates = db.query(Candidate).count()
 
@@ -99,28 +99,39 @@ def get_candidate_stats(
 
     entry_level_count = (
         db.query(Candidate)
-        .filter(
-            Candidate.candidate_level == "Entry-Level"
-        )
+        .filter(Candidate.candidate_level == "Entry-Level")
         .count()
     )
 
     junior_count = (
         db.query(Candidate)
-        .filter(
-            Candidate.candidate_level == "Junior"
-        )
+        .filter(Candidate.candidate_level == "Junior")
+        .count()
+    )
+
+    mid_level_count = (
+        db.query(Candidate)
+        .filter(Candidate.candidate_level == "Mid-Level")
+        .count()
+    )
+
+    senior_count = (
+        db.query(Candidate)
+        .filter(Candidate.candidate_level == "Senior")
         .count()
     )
 
     return {
         "total_candidates": total_candidates,
-        "average_skill_score": round(
-            average_skill_score or 0,
-            2,
+        "average_skill_score": float(
+            round(average_skill_score or 0, 2)
         ),
-        "entry_level_count": entry_level_count,
-        "junior_count": junior_count,
+        "level_distribution": {
+            "entry_level": entry_level_count,
+            "junior": junior_count,
+            "mid_level": mid_level_count,
+            "senior": senior_count
+        }
     }
 
 def get_dashboard_summary(
@@ -167,7 +178,7 @@ def get_dashboard_summary(
         "total_candidates": total_candidates,
         "average_score": round(
             average_score or 0,
-            2,
+            2
         ),
         "top_candidate": (
             top_candidate.name
@@ -179,7 +190,7 @@ def get_dashboard_summary(
         ),
         "junior_count": junior_count,
         "mid_count": mid_count,
-        "senior_count": senior_count,
+        "senior_count": senior_count
     }
 
 def get_top_candidates(
