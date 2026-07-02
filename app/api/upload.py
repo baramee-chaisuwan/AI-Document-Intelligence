@@ -33,10 +33,9 @@ def upload_document(
             detail="Only PDF files are allowed"
         )
 
-    file_path = f"uploads/{file.filename}"
-    save_uploaded_file(file, file_path)
+    file_bytes = file.file.read()
 
-    extracted_text = extract_text_from_pdf(file_path)[:5000]
+    extracted_text = extract_text_from_pdf(file_bytes)[:5000]
 
     summary = summarize_document(extracted_text)
     resume_data = extract_resume_data(extracted_text)

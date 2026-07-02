@@ -1,16 +1,10 @@
 import fitz
-import shutil
+import io
 
 
-def save_uploaded_file(file, file_path):
+def extract_text_from_pdf(file_bytes):
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-
-def extract_text_from_pdf(file_path):
-
-    document = fitz.open(file_path)
+    document = fitz.open(stream=file_bytes, filetype="pdf")
 
     text = ""
 
