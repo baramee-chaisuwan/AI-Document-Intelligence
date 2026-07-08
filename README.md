@@ -455,8 +455,7 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * Hybrid candidate scoring system
 * Error handling with custom exceptions
 * Docker-based deployment workflow
-* CI using GitHub Actions
-* Cloud deployment with Render
+* CI/CD pipeline (GitHub Actions for CI, auto-deploy to Render for CD)
 
 ---
 
