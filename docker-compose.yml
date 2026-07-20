@@ -11,6 +11,9 @@ services:
       - .env
     depends_on:
       - db
+    volumes:
+      - .:/app
+      - ./chroma_db:/app/chroma_db
 
   db:
     image: postgres:16

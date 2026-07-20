@@ -7,6 +7,7 @@ from app.services.analyzer_service import analyze_resume
 from app.models.resume_model import ResumeResponse, DuplicateResponse
 from app.database.database import get_db
 from app.database.models import Candidate
+from app.services.indexing_service import index_resume
 from typing import Union
 
 def check_duplicate(db, name: str):
@@ -72,6 +73,11 @@ def upload_document(
         db.add(candidate)
         db.commit()
         db.refresh(candidate)
+
+        index_resume(
+            document_id=str(candidate.id),
+            resume_text=extracted_text
+        )
 
     return ResumeResponse(
         filename=file.filename,

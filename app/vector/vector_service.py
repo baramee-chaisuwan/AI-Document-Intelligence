@@ -9,7 +9,12 @@ def add_document(document_id: str, text: str):
     collection.add(
         ids=[document_id],
         documents=[text],
-        embeddings=[embedding.tolist()]
+        embeddings=[embedding.tolist()],
+        metadatas=[
+            {
+                "candidate_id": document_id
+            }
+        ]
     )
 
 def search_documents(query: str, n_results: int = 3):
