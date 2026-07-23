@@ -1,8 +1,58 @@
 from langchain_core.output_parsers import StrOutputParser
 
-from app.rag.chain import llm
-from app.rag.prompt import resume_summary_prompt as prompt
+from app.rag.chain import (
+    llm,
+    recommendation_chain
+)
+
+from app.rag.prompt import assistant_prompt
 from app.vector.vector_service import search_documents
+
+
+def build_candidate_context(results):
+
+    candidates = {}
+    candidate_count = {}
+
+    documents = results["documents"][0]
+    metadatas = results["metadatas"][0]
+
+
+    for document, metadata in zip(
+        documents,
+        metadatas
+    ):
+
+        candidate_id = metadata["candidate_id"]
+
+        if candidate_count.get(candidate_id, 0) >= 2:
+            continue
+
+
+        if candidate_id not in candidates:
+            candidates[candidate_id] = []
+
+
+        candidates[candidate_id].append(document)
+
+        candidate_count[candidate_id] = (
+            candidate_count.get(candidate_id, 0) + 1
+        )
+
+    context = ""
+
+    for candidate_id, chunks in candidates.items():
+
+        context += f"""
+Candidate ID: {candidate_id}
+
+Resume:
+{"\n".join(chunks)}
+
+--------------------
+"""
+
+    return context
 
 
 def ask_rag(question: str):
@@ -17,7 +67,7 @@ def ask_rag(question: str):
     )
 
     chain = (
-        prompt
+        assistant_prompt
         | llm
         | StrOutputParser()
     )
@@ -30,3 +80,40 @@ def ask_rag(question: str):
     )
 
     return answer
+
+
+
+def ask_recommendation(question: str):
+
+    search_query = """
+AI Engineer
+Python
+Machine Learning
+Deep Learning
+Generative AI
+LLM
+NLP
+FastAPI
+Docker
+SQL
+Backend Development
+MLOps
+"""
+
+    results = search_documents(
+        query=search_query,
+        n_results=15
+    )
+
+    context = build_candidate_context(results)
+
+    chain = recommendation_chain
+
+    answer = chain.invoke(
+        {
+            "resume": context,
+            "question": question
+        }
+    )
+
+    return answer.model_dump()

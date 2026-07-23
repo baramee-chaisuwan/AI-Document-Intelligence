@@ -24,14 +24,19 @@ def add_document(
 
 def search_documents(
     query: str,
-    n_results: int = 3
+    n_results: int = 10
 ):
 
     query_embedding = create_embedding(query)
 
     results = collection.query(
         query_embeddings=[query_embedding.tolist()],
-        n_results=n_results
+        n_results=n_results,
+        include=[
+            "documents",
+            "metadatas",
+            "distances"
+        ]
     )
 
     return results
@@ -43,7 +48,7 @@ def delete_candidate_documents(candidate_id: str):
             "candidate_id": candidate_id
         }
     )
-    
+
 def delete_document(document_id: str):
 
     collection.delete(

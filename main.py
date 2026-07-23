@@ -13,6 +13,8 @@ from app.api.dashboard import router as dashboard_router
 from app.api.search import router as search_router
 from app.api.langchain import (router as langchain_router)
 from app.api.rag import router as rag_router
+from app.api.assistant import router as assistant_router
+from app.api.recommend import router as recommend_router
 from app.core.exceptions import NotFoundError
 
 load_dotenv()
@@ -48,6 +50,8 @@ app.include_router(candidate_router)
 app.include_router(search_router)
 app.include_router(langchain_router)
 app.include_router(rag_router)
+app.include_router(assistant_router)
+app.include_router(recommend_router)
 app.include_router(dashboard_router)
 app.include_router(export_router)
 
