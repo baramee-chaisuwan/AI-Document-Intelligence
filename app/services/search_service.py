@@ -1,7 +1,6 @@
 from app.vector.vector_service import search_documents
 from app.database.models import Candidate
 
-
 def semantic_search(query: str, db):
 
     results = search_documents(query)
@@ -11,14 +10,23 @@ def semantic_search(query: str, db):
     metadatas = results["metadatas"][0]
     distances = results["distances"][0]
 
+    seen_candidates = set()
+
     for metadata, distance in zip(
         metadatas,
         distances
     ):
 
+        candidate_id = int(metadata["candidate_id"])
+
+        if candidate_id in seen_candidates:
+            continue
+
+        seen_candidates.add(candidate_id)
+
         candidate = (
             db.query(Candidate)
-            .filter(Candidate.id == int(metadata["candidate_id"]))
+            .filter(Candidate.id == candidate_id)
             .first()
         )
 

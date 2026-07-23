@@ -2,7 +2,11 @@ from app.vector.chroma_client import collection
 from app.rag.embedding_service import create_embedding
 
 
-def add_document(document_id: str, text: str):
+def add_document(
+    document_id: str,
+    candidate_id: str,
+    text: str
+):
 
     embedding = create_embedding(text)
 
@@ -12,12 +16,16 @@ def add_document(document_id: str, text: str):
         embeddings=[embedding.tolist()],
         metadatas=[
             {
-                "candidate_id": document_id
+                "candidate_id": candidate_id
             }
         ]
     )
 
-def search_documents(query: str, n_results: int = 3):
+
+def search_documents(
+    query: str,
+    n_results: int = 3
+):
 
     query_embedding = create_embedding(query)
 
@@ -28,6 +36,14 @@ def search_documents(query: str, n_results: int = 3):
 
     return results
 
+def delete_candidate_documents(candidate_id: str):
+
+    collection.delete(
+        where={
+            "candidate_id": candidate_id
+        }
+    )
+    
 def delete_document(document_id: str):
 
     collection.delete(

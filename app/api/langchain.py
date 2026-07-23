@@ -1,13 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.services.langchain_service import (
-    summarize_resume_with_langchain
-)
+from app.services.langchain_service import (summarize_resume_with_langchain)
 
 router = APIRouter(
     prefix="/langchain",
-    tags=["LangChain Demo"]
+    tags=["LangChain"]
 )
 
 
