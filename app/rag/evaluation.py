@@ -28,7 +28,11 @@ def evaluate_retrieval(tests):
             for meta in metadatas
         ]
 
-        top1_candidate = retrieved_candidates[0]
+        top1_candidate = (
+            retrieved_candidates[0]
+            if retrieved_candidates
+            else None
+        )
 
         top1_pass = top1_candidate == expected_candidate
         top3_pass = expected_candidate in retrieved_candidates[:3]
