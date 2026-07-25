@@ -16,6 +16,7 @@ def add_document(
         embeddings=[embedding.tolist()],
         metadatas=[
             {
+                "document_id": document_id,
                 "candidate_id": candidate_id
             }
         ]
@@ -41,7 +42,27 @@ def search_documents(
 
     return results
 
-def delete_candidate_documents(candidate_id: str):
+
+def get_candidate_documents(
+    candidate_id: str
+):
+
+    results = collection.get(
+        where={
+            "candidate_id": candidate_id
+        },
+        include=[
+            "documents",
+            "metadatas"
+        ]
+    )
+
+    return results
+
+
+def delete_candidate_documents(
+    candidate_id: str
+):
 
     collection.delete(
         where={
@@ -49,8 +70,13 @@ def delete_candidate_documents(candidate_id: str):
         }
     )
 
-def delete_document(document_id: str):
+
+def delete_document(
+    document_id: str
+):
 
     collection.delete(
-        ids=[document_id]
+        ids=[
+            document_id
+        ]
     )

@@ -6,13 +6,12 @@ from app.rag.chain import (
 )
 
 from app.vector.hybrid_search import hybrid_search
-
+from app.vector.vector_service import get_candidate_documents
 
 assistant_rag_chain = (
     assistant_chain
     | StrOutputParser()
 )
-
 
 RECOMMENDATION_SEARCH_QUERY = """
 AI Engineer
@@ -28,7 +27,6 @@ SQL
 Backend Development
 MLOps
 """
-
 
 def build_candidate_context(results):
 
@@ -76,31 +74,50 @@ Resume:
 --------------------
 """
 
-
     return context
 
+def build_full_candidate_context(candidate_id):
 
+    result = get_candidate_documents(
+        candidate_id
+    )
+
+    documents = result["documents"]
+
+
+    if not documents:
+        return ""
+
+    return f"""
+Candidate ID: {candidate_id}
+
+Resume:
+{"\n".join(documents)}
+
+--------------------
+"""
 
 def ask_rag(question: str):
 
+    # Step 1: find candidate
     results = hybrid_search(
         query=question,
         n_results=3
     )
 
+    metadatas = results["metadatas"][0]
 
-    documents = results["documents"][0]
-
-
-    # Prevent LLM hallucination when no resume context exists
-    if not documents:
+    if not metadatas:
         return "I couldn't find that information in the resume."
 
+    candidate_id = metadatas[0]["candidate_id"]
 
-    context = "\n\n".join(
-        documents
+    context = build_full_candidate_context(
+        candidate_id
     )
 
+    if not context.strip():
+        return "I couldn't find that information in the resume."
 
     return assistant_rag_chain.invoke(
         {
@@ -109,23 +126,18 @@ def ask_rag(question: str):
         }
     )
 
-
-
 def ask_recommendation(question: str):
 
     results = hybrid_search(
         query=RECOMMENDATION_SEARCH_QUERY,
-        n_results=15
+        n_results=10
     )
 
 
-    context = build_candidate_context(
-        results
-    )
+    metadatas = results["metadatas"][0]
 
 
-    if not context.strip():
-
+    if not metadatas:
         return {
             "candidate_id": "N/A",
             "candidate_name": "No Candidate Found",
@@ -134,6 +146,26 @@ def ask_recommendation(question: str):
             "relevant_experience": [],
             "reason": "No candidate information was found in the resume database."
         }
+
+
+    candidate_ids = list(
+        dict.fromkeys(
+            [
+                meta["candidate_id"]
+                for meta in metadatas
+            ]
+        )
+    )
+
+
+    context = ""
+
+
+    for candidate_id in candidate_ids:
+
+        context += build_full_candidate_context(
+            candidate_id
+        )
 
 
     answer = recommendation_chain.invoke(
