@@ -1,4 +1,8 @@
 from app.vector.vector_service import search_documents
+from app.rag.rag_chain import (
+    ask_rag,
+    ask_recommendation
+)
 
 
 def evaluate_retrieval(tests):
@@ -50,6 +54,82 @@ def evaluate_retrieval(tests):
         "top3_accuracy": top3_correct / total,
         "top1_correct": top1_correct,
         "top3_correct": top3_correct,
+        "total": total,
+        "details": details
+    }
+
+
+
+def evaluate_assistant(tests):
+
+    correct = 0
+    total = len(tests)
+
+    details = []
+
+    for question, expected_keyword in tests:
+
+        answer = ask_rag(question)
+
+        passed = (
+            expected_keyword.lower()
+            in answer.lower()
+        )
+
+        if passed:
+            correct += 1
+
+        details.append({
+            "question": question,
+            "answer": answer,
+            "expected": expected_keyword,
+            "passed": passed
+        })
+
+
+    return {
+        "accuracy": correct / total,
+        "correct": correct,
+        "total": total,
+        "details": details
+    }
+
+
+
+def evaluate_recommendation(tests):
+
+    correct = 0
+    total = len(tests)
+
+    details = []
+
+    for question, expected_candidate in tests:
+
+        result = ask_recommendation(question)
+
+        candidate_id = str(
+            result.get("candidate_id")
+        )
+
+        passed = (
+            candidate_id == str(expected_candidate)
+        )
+
+        if passed:
+            correct += 1
+
+        details.append({
+            "question": question,
+            "expected": expected_candidate,
+            "actual": candidate_id,
+            "match_score": result.get("match_score"),
+            "passed": passed
+        })
+
+
+    return {
+        "accuracy": correct / total,
+        "correct": correct,
         "total": total,
         "details": details
     }
