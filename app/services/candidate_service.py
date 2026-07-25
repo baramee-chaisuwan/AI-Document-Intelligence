@@ -1,10 +1,14 @@
-from app.repositories import candidate_repository
-from app.models.candidate_update_model import CandidateUpdate
-from app.core.exceptions import NotFoundError
 from sqlalchemy.orm import Session
+
+from app.core.exceptions import NotFoundError
+from app.models.candidate_update_model import CandidateUpdate
+from app.repositories import candidate_repository
+from app.vector.vector_service import delete_candidate_documents
+
 
 def get_candidates(db: Session, skip: int, limit: int):
     return candidate_repository.get_candidates(db, skip, limit)
+
 
 def search_candidates(db: Session, name: str, level: str, min_score: int):
     return candidate_repository.search_candidates(db, name, level, min_score)
@@ -15,7 +19,8 @@ def get_candidate_stats(db: Session):
 
 
 def get_ranking(db: Session, limit: int):
-    return candidate_repository.get_ranking(db,limit)
+    return candidate_repository.get_ranking(db, limit)
+
 
 def delete_candidate(db: Session, candidate_id: int):
     candidate = candidate_repository.get_candidate_by_id(db, candidate_id)
@@ -24,6 +29,8 @@ def delete_candidate(db: Session, candidate_id: int):
         raise NotFoundError("Candidate not found")
 
     candidate_repository.delete_candidate(db, candidate)
+
+    delete_candidate_documents(str(candidate_id))
 
     return {"deleted": True}
 
@@ -41,6 +48,7 @@ def update_candidate(db: Session, candidate_id: int, data: CandidateUpdate):
         candidate.candidate_level = data.candidate_level
 
     return candidate_repository.update_candidate(db, candidate)
+
 
 def get_candidate_by_id(db: Session, candidate_id: int):
     candidate = candidate_repository.get_candidate_by_id(db, candidate_id)

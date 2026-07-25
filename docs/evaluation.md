@@ -95,7 +95,9 @@ This indicates a ranking limitation rather than a retrieval failure.
 
 The query: 
 
+```text
 LLM
+```
 
 failed to retrieve the expected candidate within the Top-3 results.
 

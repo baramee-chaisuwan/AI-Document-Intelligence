@@ -4,8 +4,28 @@ from app.rag.chain import (
     assistant_chain,
     recommendation_chain
 )
-
 from app.vector.vector_service import search_documents
+
+
+assistant_rag_chain = (
+    assistant_chain
+    | StrOutputParser()
+)
+
+RECOMMENDATION_SEARCH_QUERY = """
+AI Engineer
+Python
+Machine Learning
+Deep Learning
+Generative AI
+LLM
+NLP
+FastAPI
+Docker
+SQL
+Backend Development
+MLOps
+"""
 
 
 def build_candidate_context(results):
@@ -23,10 +43,7 @@ def build_candidate_context(results):
         if candidate_count.get(candidate_id, 0) >= 2:
             continue
 
-        if candidate_id not in candidates:
-            candidates[candidate_id] = []
-
-        candidates[candidate_id].append(document)
+        candidates.setdefault(candidate_id, []).append(document)
 
         candidate_count[candidate_id] = (
             candidate_count.get(candidate_id, 0) + 1
@@ -59,48 +76,34 @@ def ask_rag(question: str):
         results["documents"][0]
     )
 
-    chain = (
-        assistant_chain
-        | StrOutputParser()
-    )
-
-    answer = chain.invoke(
+    return assistant_rag_chain.invoke(
         {
             "resume": context,
             "question": question
         }
     )
 
-    return answer
-
 
 def ask_recommendation(question: str):
 
-    search_query = """
-AI Engineer
-Python
-Machine Learning
-Deep Learning
-Generative AI
-LLM
-NLP
-FastAPI
-Docker
-SQL
-Backend Development
-MLOps
-"""
-
     results = search_documents(
-        query=search_query,
+        query=RECOMMENDATION_SEARCH_QUERY,
         n_results=15
     )
 
     context = build_candidate_context(results)
 
-    chain = recommendation_chain
+    if not context.strip():
+        return {
+            "candidate_id": "N/A",
+            "candidate_name": "No Candidate Found",
+            "match_score": 0,
+            "strengths": [],
+            "relevant_experience": [],
+            "reason": "No candidate information was found in the resume database."
+        }
 
-    answer = chain.invoke(
+    answer = recommendation_chain.invoke(
         {
             "resume": context,
             "question": question

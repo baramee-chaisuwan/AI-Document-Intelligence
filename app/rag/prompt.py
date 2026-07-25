@@ -17,6 +17,7 @@ Focus on:
 """
 )
 
+
 assistant_prompt = PromptTemplate.from_template(
     """
 You are an experienced HR recruiter.
@@ -37,15 +38,15 @@ Instructions:
 - If the answer cannot be found in the resume, reply:
   "I couldn't find that information in the resume."
 - Keep the answer concise and professional.
-- When recommending a candidate, explain your reasoning briefly.
 """
 )
+
 
 recommendation_prompt = PromptTemplate.from_template(
     """
 You are an AI-powered ATS candidate ranking system.
 
-Your task is to evaluate multiple candidates and recommend the best candidate for the job requirement.
+Your task is to evaluate multiple candidates and recommend the best matching candidate for the job requirement.
 
 Resume Context:
 
@@ -65,9 +66,13 @@ Instructions:
   4. AI/ML technologies relevance
   5. Backend and deployment capability
 
-- Select only the strongest candidate.
+- Select the best matching candidate based on the job requirement.
 - Use ONLY information from the resume context.
+- Do not use outside knowledge.
 - Do not create or assume missing information.
+- Use exact project names when mentioning projects.
+- Do not rename projects or combine unrelated experiences.
+- Do not add technologies that are not explicitly mentioned in the resume.
 - Give a realistic match score between 0-100.
 - Avoid using 100 unless the candidate perfectly matches every requirement.
 
