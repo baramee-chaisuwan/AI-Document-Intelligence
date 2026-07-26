@@ -1,6 +1,6 @@
-# AI-powered Resume Screening System (ATS) built with FastAPI, PostgreSQL, Gemini AI, Docker, SQLAlchemy, and GitHub Actions
+# AI-powered Resume Screening System (ATS) with RAG, Gemini AI, ChromaDB, FastAPI, PostgreSQL, Docker, and GitHub Actions
 
-AI-powered Resume Screening System built with FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, and Docker.
+AI-powered Resume Screening System built with FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, Docker, LangChain, and ChromaDB.
 
 This project is a lightweight Applicant Tracking System (ATS) that automates resume processing, extracts structured candidate data, and performs AI-assisted evaluation and ranking.
 
@@ -18,6 +18,10 @@ The system automates resume processing and candidate evaluation through an AI pi
 * Compute candidate scores (rule-based + AI hybrid)
 * Store results in PostgreSQL
 * Provide search, ranking, and analytics APIs
+* Generate resume embeddings
+* Store vectors in ChromaDB
+* Perform semantic search using vector similarity
+* Provide RAG-based candidate recommendation
 
 ---
 
@@ -33,22 +37,33 @@ The system automates resume processing and candidate evaluation through an AI pi
 ## Architecture
 
 ```text
-Client
-   ↓
-FastAPI Router
-   ↓
-Service Layer (Business + AI)
-   ↓
-Repository Layer
-   ↓
-SQLAlchemy ORM
-   ↓
-PostgreSQL
+Client Layer
+        ↓
+FastAPI Application Layer
+        ↓
+Service Layer
+        ↓
+ ┌───────────────┬────────────────┐
+ ↓               ↓                ↓
+Data Layer    AI Processing     RAG Pipeline
+              Layer             Layer
+ ↓               ↓                ↓
+PostgreSQL    Gemini AI       Embedding Model
+Database      + PyMuPDF            ↓
+                              ChromaDB
+                                   ↓
+                              Retrieval
+                                   ↓
+                            Gemini LLM
 ```
+
+The system follows a layered backend architecture with an integrated AI pipeline.
+The FastAPI service layer orchestrates business logic, database operations, and AI workflows.
+The RAG pipeline handles document embedding, vector retrieval, and LLM-based candidate recommendation.
 
 ## Architecture Diagram
 
-![System Architecture](assets/screenshots/architecture.png)
+![System Architecture](assets/screenshots/architecture_v2.png)
 
 ---
 
@@ -71,9 +86,21 @@ AI Scoring
         ↓
 Combined Skill Score
         ↓
-Store in Database
+Store Candidate Data
         ↓
-Expose via REST API
+Index Resume
+        ↓
+Generate Resume Embedding
+        ↓
+Store Vector in ChromaDB
+        ↓
+Semantic Retrieval
+        ↓
+Retrieved Resume Context
+        ↓
+Gemini RAG Recommendation
+        ↓
+Expose REST API
 ```
 
 ---
@@ -103,6 +130,14 @@ Expose via REST API
 * Filter by minimum skill score
 * Ranking system based on skill score
 
+### RAG & AI Recommendation
+
+* Resume embedding generation using SentenceTransformer
+* Vector storage with ChromaDB
+* Semantic candidate search
+* Context-aware candidate recommendation using Gemini
+* AI-generated candidate matching explanation
+
 ### Dashboard Analytics
 
 * Dashboard summary
@@ -122,6 +157,10 @@ Expose via REST API
 ![Python](https://img.shields.io/badge/python-3.13-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571)
 ![Docker](https://img.shields.io/badge/docker-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791)
+![Gemini](https://img.shields.io/badge/Gemini-AI-8E75B2)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-vector--db-1D9E75)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI-2088FF)
 
 ### Backend
 * Python 3.13
@@ -133,6 +172,9 @@ Expose via REST API
 ### AI & Document Processing
 * Google Gemini API (LLM-based Resume Analysis)
 * PyMuPDF (PDF Text Extraction)
+* LangChain (RAG pipeline orchestration)
+* Sentence Transformers (Embedding model)
+* ChromaDB (Vector database)
 
 ### Infrastructure & DevOps
 * Docker (Containerization)
@@ -157,13 +199,15 @@ AI-Document-Intelligence/
 │   ├── database/         # DB connection & models
 │   ├── models/           # Pydantic schemas
 │   ├── repositories/     # data access layer
-│   └── services/         # business logic + AI layer
+│   ├── services/         # business logic + AI layer
+│   ├── rag/              # RAG pipeline and prompts
+│   └── vector/           # Embedding and ChromaDB operations
 │
 ├── alembic/             # database migrations
 ├── alembic.ini          # migration config
 │
 ├── main.py              # FastAPI entry point
-├── test/                # test cases (pytest)
+├── tests/               # pytest test cases
 ├── pytest.ini           # test configuration
 │
 ├── docker-compose.yml   # multi-container setup
@@ -256,12 +300,17 @@ pytest -v
 * Database operations
 * Service layer logic
 * Resume upload pipeline
+* RAG assistant testing
+* Candidate recommendation testing
+* Vector search testing
+* Hybrid search validation
+* AI scoring validation
 
 ---
 
-## CI/CD Pipeline (GitHub Actions + Render)
+## CI/CD Pipeline
 
-The project includes a fully automated CI pipeline using GitHub Actions.
+GitHub Actions is used for Continuous Integration (CI), while Render provides Continuous Deployment (CD).
 
 ## CI Steps
 
@@ -331,7 +380,7 @@ Render is connected to the GitHub repository and automatically deploys the lates
 ### Upload
 
 ```http
-POST /upload
+POST /upload/
 ```
 
 Upload a PDF resume and process it using the AI pipeline.
@@ -385,6 +434,26 @@ Returns candidate statistics and score averages.
 
 ---
 
+### AI Recommendation
+
+```http
+POST /recommend/
+```
+
+Provides AI-powered candidate recommendation using RAG retrieval.
+
+---
+
+### RAG Assistant
+
+```http
+POST /assistant/
+```
+
+Answers resume-related questions using retrieved candidate context.
+
+---
+
 ### Dashboard
 
 ```http
@@ -417,7 +486,7 @@ Hybrid candidate scoring approach:
 * AI-based scoring using Gemini
 * Combined skill score for ranking
 
-```text id="score_formula"
+```text
 Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 ```
 
@@ -451,6 +520,10 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * SQLAlchemy ORM with PostgreSQL
 * AI integration using Gemini API
 * Resume parsing pipeline
+* Retrieval Augmented Generation (RAG)
+* Vector database integration with ChromaDB
+* Semantic search implementation
+* AI recommendation pipeline
 * Duplicate detection system
 * Hybrid candidate scoring system
 * Error handling with custom exceptions
@@ -464,17 +537,18 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * JWT authentication system
 * Role-based access control (RBAC)
 * Redis caching
-* Background task processing (Celery)
-* Job description matching
-* Vector database integration (ChromaDB)
+* Background processing with Celery
+* Job description matching with resume retrieval
+* Advanced reranking model
 * React dashboard
+* Production monitoring
 * Multi-environment deployment (Staging / Production)
 
 ---
 
 ## Project Status
 
-**Status:** Version 1.0 Completed
+**Status:** Version 2.0 - RAG Pipeline Completed
 
 ### Implemented Features
 
@@ -492,6 +566,16 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * Automated testing with pytest
 * CI pipeline using GitHub Actions
 * Deployment on Render
+
+### Version 2.0 Implemented Features
+
+* Resume embedding pipeline
+* ChromaDB vector storage
+* Semantic search
+* Hybrid search implementation
+* RAG assistant
+* AI candidate recommendation
+* Automated RAG integration tests
 
 ---
 
@@ -515,6 +599,18 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 ### Ranking API
 
 ![Ranking API](assets/screenshots/ranking-api.png)
+
+### AI Recommendation API
+
+![Recommendation API](assets/screenshots/recommend-api.png)
+
+![Recommendation API](assets/screenshots/recommend-api2.png)
+
+### RAG Assistant API
+
+![Assistant API](assets/screenshots/assistant-api.png)
+
+![Assistant API](assets/screenshots/assistant-api2.png)
 
 ### Dashboard Summary
 

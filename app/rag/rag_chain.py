@@ -99,7 +99,6 @@ Resume:
 
 def ask_rag(question: str):
 
-    # Step 1: find candidate
     results = hybrid_search(
         query=question,
         n_results=3
