@@ -3,7 +3,7 @@ from app.vector.vector_service import (
     delete_document
 )
 
-from app.services.search_service import hybrid_search
+from app.vector.hybrid_search import hybrid_search
 
 def test_hybrid_search_fastapi_docker():
 
