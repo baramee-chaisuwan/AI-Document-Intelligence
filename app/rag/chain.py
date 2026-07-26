@@ -10,15 +10,46 @@ from app.rag.prompt import (
 
 load_dotenv()
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0,
-)
 
-structured_llm = llm.with_structured_output(
-    RecommendationResponse
-)
+llm = None
+structured_llm = None
 
-resume_summary_chain = resume_summary_prompt | llm
-assistant_chain = assistant_prompt | llm
-recommendation_chain = recommendation_prompt | structured_llm
+
+def get_llm():
+
+    global llm
+
+    if llm is None:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0,
+        )
+
+    return llm
+
+
+def get_structured_llm():
+
+    global structured_llm
+
+    if structured_llm is None:
+        structured_llm = get_llm().with_structured_output(
+            RecommendationResponse
+        )
+
+    return structured_llm
+
+
+def get_resume_summary_chain():
+
+    return resume_summary_prompt | get_llm()
+
+
+def get_assistant_chain():
+
+    return assistant_prompt | get_llm()
+
+
+def get_recommendation_chain():
+
+    return recommendation_prompt | get_structured_llm()

@@ -1,17 +1,29 @@
 from langchain_core.output_parsers import StrOutputParser
 
 from app.rag.chain import (
-    assistant_chain,
-    recommendation_chain
+    get_assistant_chain,
+    get_recommendation_chain
 )
 
 from app.vector.hybrid_search import hybrid_search
 from app.vector.vector_service import get_candidate_documents
 
-assistant_rag_chain = (
-    assistant_chain
-    | StrOutputParser()
-)
+
+assistant_rag_chain = None
+
+
+def get_assistant_rag_chain():
+
+    global assistant_rag_chain
+
+    if assistant_rag_chain is None:
+        assistant_rag_chain = (
+            get_assistant_chain()
+            | StrOutputParser()
+        )
+
+    return assistant_rag_chain
+
 
 RECOMMENDATION_SEARCH_QUERY = """
 AI Engineer
@@ -27,6 +39,7 @@ SQL
 Backend Development
 MLOps
 """
+
 
 def build_candidate_context(results):
 
@@ -76,6 +89,8 @@ Resume:
 
     return context
 
+
+
 def build_full_candidate_context(candidate_id):
 
     result = get_candidate_documents(
@@ -88,6 +103,7 @@ def build_full_candidate_context(candidate_id):
     if not documents:
         return ""
 
+
     return f"""
 Candidate ID: {candidate_id}
 
@@ -97,6 +113,8 @@ Resume:
 --------------------
 """
 
+
+
 def ask_rag(question: str):
 
     results = hybrid_search(
@@ -104,26 +122,34 @@ def ask_rag(question: str):
         n_results=3
     )
 
+
     metadatas = results["metadatas"][0]
+
 
     if not metadatas:
         return "I couldn't find that information in the resume."
 
+
     candidate_id = metadatas[0]["candidate_id"]
+
 
     context = build_full_candidate_context(
         candidate_id
     )
 
+
     if not context.strip():
         return "I couldn't find that information in the resume."
 
-    return assistant_rag_chain.invoke(
+
+    return get_assistant_rag_chain().invoke(
         {
             "resume": context,
             "question": question
         }
     )
+
+
 
 def ask_recommendation(question: str):
 
@@ -167,7 +193,7 @@ def ask_recommendation(question: str):
         )
 
 
-    answer = recommendation_chain.invoke(
+    answer = get_recommendation_chain().invoke(
         {
             "resume": context,
             "question": question
