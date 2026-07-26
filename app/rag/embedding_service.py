@@ -1,3 +1,7 @@
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 model = None
 
 
@@ -26,7 +30,9 @@ def create_embedding(text):
     model = get_model()
 
     embedding = model.encode(
-        text
+        text,
+        batch_size=1,
+        show_progress_bar=False
     )
 
     return embedding
