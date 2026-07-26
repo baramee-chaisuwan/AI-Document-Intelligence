@@ -1,4 +1,5 @@
-from app.rag.rag_chain import ask_recommendation
+from app.rag.rag_chain import ask_recommendation as rag_ask_recommendation
 
-def recommend_candidate(question: str):
-    return ask_recommendation(question)
+
+def ask_recommendation(question: str):
+    return rag_ask_recommendation(question)
