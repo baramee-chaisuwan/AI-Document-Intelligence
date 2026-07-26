@@ -37,12 +37,12 @@ The system automates resume processing and candidate evaluation through an AI pi
 ## Architecture
 
 ```text
-Client Layer
-        ↓
-FastAPI Application Layer
-        ↓
-Service Layer
-        ↓
+           Client Layer
+                 ↓
+      FastAPI Application Layer
+                 ↓
+           Service Layer
+                 ↓
  ┌───────────────┬────────────────┐
  ↓               ↓                ↓
 Data Layer    AI Processing     RAG Pipeline
