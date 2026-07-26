@@ -1,8 +1,8 @@
 import os
+import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from dotenv import load_dotenv 
-from time import time
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -11,14 +11,28 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is missing")
 
-while True:
-    try:
-        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-        engine.connect()
-        break
-    except Exception as e:
-        print("DB not ready yet:", e)
-        time.sleep(3)
+
+if os.getenv("TESTING") == "true":
+
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True
+    )
+else:
+
+    while True:
+        try:
+            engine = create_engine(
+                DATABASE_URL,
+                pool_pre_ping=True
+            )
+
+            engine.connect()
+            break
+
+        except Exception as e:
+            print("DB not ready yet:", e)
+            time.sleep(3)
 
 SessionLocal = sessionmaker(
     autocommit=False,
