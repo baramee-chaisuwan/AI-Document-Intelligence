@@ -52,9 +52,12 @@ PostgreSQL    Gemini AI       Embedding Model
 Database      + PyMuPDF            ↓
                               ChromaDB
                                    ↓
-                              Retrieval
+                         Semantic Search
+                    (Vector Similarity Retrieval)
                                    ↓
-                            Gemini LLM
+                          Retrieved Context
+                                   ↓
+                              Gemini LLM
 ```
 
 The system follows a layered backend architecture with an integrated AI pipeline.
@@ -94,7 +97,8 @@ Generate Resume Embedding
         ↓
 Store Vector in ChromaDB
         ↓
-Semantic Retrieval
+Semantic Search
+(Vector Similarity Matching)
         ↓
 Retrieved Resume Context
         ↓
@@ -134,7 +138,7 @@ Expose REST API
 
 * Resume embedding generation using SentenceTransformer
 * Vector storage with ChromaDB
-* Semantic candidate search
+* Semantic search using vector similarity
 * Context-aware candidate recommendation using Gemini
 * AI-generated candidate matching explanation
 
@@ -303,6 +307,7 @@ pytest -v
 * RAG assistant testing
 * Candidate recommendation testing
 * Vector search testing
+* Semantic search validation
 * Hybrid search validation
 * AI scoring validation
 
@@ -431,6 +436,16 @@ GET /candidates/stats
 ```
 
 Returns candidate statistics and score averages.
+
+---
+
+### Semantic Search
+
+```http
+POST /search/
+```
+
+Performs semantic search using vector similarity retrieval with ChromaDB.
 
 ---
 
@@ -571,7 +586,7 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 
 * Resume embedding pipeline
 * ChromaDB vector storage
-* Semantic search
+* Semantic search using ChromaDB vector similarity
 * Hybrid search implementation
 * RAG assistant
 * AI candidate recommendation
@@ -599,6 +614,12 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 ### Ranking API
 
 ![Ranking API](assets/screenshots/ranking-api.png)
+
+### Semantic Search
+
+![Semantic Search API](assets/screenshots/semantic-search-api.png)
+
+![Semantic Search API](assets/screenshots/semantic-search-api2.png)
 
 ### AI Recommendation API
 
