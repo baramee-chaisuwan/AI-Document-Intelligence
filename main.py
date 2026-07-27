@@ -45,9 +45,9 @@ def root():
 app.include_router(health_router)
 app.include_router(upload_router)
 app.include_router(candidate_router)
-app.include_router(search_router)
-app.include_router(assistant_router)
-app.include_router(recommend_router)
+# app.include_router(search_router)
+# app.include_router(assistant_router)
+# app.include_router(recommend_router)
 app.include_router(dashboard_router)
 app.include_router(export_router)
 
