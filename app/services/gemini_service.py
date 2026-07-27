@@ -1,8 +1,17 @@
 import google.generativeai as genai
 from app.core.config import GEMINI_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+model = None
+
+
+def get_model():
+    global model
+
+    if model is None:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+    return model
 
 
 def summarize_document(text):
@@ -24,7 +33,7 @@ Resume:
 """
 
     try:
-        response = model.generate_content(prompt)
+        response = get_model().generate_content(prompt)
         return response.text.strip()
 
     except Exception as e:
