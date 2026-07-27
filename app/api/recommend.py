@@ -12,13 +12,20 @@ router = APIRouter(
 )
 
 
+def ask_recommendation(question: str):
+
+    from app.services.rag_service import (
+        ask_recommendation as service
+    )
+
+    return service(question)
+
+
 @router.post(
     "/",
     response_model=RecommendationResponse
 )
 def recommend(request: RagRequest):
-
-    from app.services.rag_service import ask_recommendation
 
     return ask_recommendation(
         request.question

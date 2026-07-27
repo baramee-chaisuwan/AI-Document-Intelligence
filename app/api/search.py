@@ -7,11 +7,25 @@ from app.models.search_model import (
     SearchResponse
 )
 
-
 router = APIRouter(
     prefix="/search",
     tags=["Semantic Search"]
 )
+
+
+def semantic_search(
+    query: str,
+    db: Session
+):
+
+    from app.services.search_service import (
+        semantic_search as service
+    )
+
+    return service(
+        query,
+        db
+    )
 
 
 @router.post(
@@ -22,8 +36,6 @@ def search(
     request: SearchRequest,
     db: Session = Depends(get_db)
 ):
-
-    from app.services.search_service import semantic_search
 
     return {
         "results": semantic_search(
