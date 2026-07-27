@@ -2,18 +2,48 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 
+print("A")
+
 from app.database.database import engine, Base
 import app.database.models
 
+print("B")
+
 from app.api.health import router as health_router
+
+print("C")
+
 from app.api.upload import router as upload_router
+
+print("D")
+
 from app.api.candidate import router as candidate_router
+
+print("E")
+
 from app.api.export import router as export_router
+
+print("F")
+
 from app.api.dashboard import router as dashboard_router
+
+print("G")
+
 from app.api.search import router as search_router
+
+print("H")
+
 from app.api.assistant import router as assistant_router
+
+print("I")
+
 from app.api.recommend import router as recommend_router
+
+print("J")
+
 from app.core.exceptions import NotFoundError
+
+print("K")
 
 load_dotenv()
 
