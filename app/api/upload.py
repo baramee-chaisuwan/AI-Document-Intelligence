@@ -1,42 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
-
-print("UPLOAD A")
-from app.services.pdf_service import extract_text_from_pdf
-
-print("UPLOAD B")
-from app.services.gemini_service import summarize_document
-
-print("UPLOAD C")
-from app.services.extraction_service import extract_resume_data
-
-print("UPLOAD D")
-from app.services.analyzer_service import analyze_resume
-
-print("UPLOAD E")
-from app.models.resume_model import ResumeResponse, DuplicateResponse
-
-print("UPLOAD F")
-from app.database.database import get_db
-
-print("UPLOAD G")
-from app.database.models import Candidate
-
-print("UPLOAD H")
-from app.services.indexing_service import index_resume
-
-print("UPLOAD I")
 from typing import Union
 
-print("UPLOAD J")
+from app.models.resume_model import (
+    ResumeResponse,
+    DuplicateResponse
+)
 
-
-def check_duplicate(db, name: str):
-    return (
-        db.query(Candidate)
-        .filter(Candidate.name == name)
-        .first()
-    )
+from app.database.database import get_db
+from app.database.models import Candidate
 
 
 router = APIRouter(
@@ -45,9 +17,75 @@ router = APIRouter(
 )
 
 
+def extract_text_from_pdf(file_bytes):
+
+    from app.services.pdf_service import (
+        extract_text_from_pdf as service
+    )
+
+    return service(file_bytes)
+
+
+def summarize_document(text):
+
+    from app.services.gemini_service import (
+        summarize_document as service
+    )
+
+    return service(text)
+
+
+def extract_resume_data(text):
+
+    from app.services.extraction_service import (
+        extract_resume_data as service
+    )
+
+    return service(text)
+
+
+def analyze_resume(data):
+
+    from app.services.analyzer_service import (
+        analyze_resume as service
+    )
+
+    return service(data)
+
+
+def index_resume(
+    document_id: str,
+    resume_text: str
+):
+
+    from app.services.indexing_service import (
+        index_resume as service
+    )
+
+    return service(
+        document_id,
+        resume_text
+    )
+
+
+def check_duplicate(
+    db,
+    name: str
+):
+
+    return (
+        db.query(Candidate)
+        .filter(Candidate.name == name)
+        .first()
+    )
+
+
 @router.post(
     "/",
-    response_model=Union[ResumeResponse, DuplicateResponse]
+    response_model=Union[
+        ResumeResponse,
+        DuplicateResponse
+    ]
 )
 def upload_document(
     file: UploadFile = File(...),
@@ -60,25 +98,49 @@ def upload_document(
             detail="Only PDF files are allowed"
         )
 
+
     file_bytes = file.file.read()
 
-    extracted_text = extract_text_from_pdf(file_bytes)[:5000]
 
-    summary = summarize_document(extracted_text)
-    resume_data = extract_resume_data(extracted_text)
-    analysis = analyze_resume(resume_data)
+    extracted_text = extract_text_from_pdf(
+        file_bytes
+    )[:5000]
+
+
+    summary = summarize_document(
+        extracted_text
+    )
+
+    resume_data = extract_resume_data(
+        extracted_text
+    )
+
+    analysis = analyze_resume(
+        resume_data
+    )
+
 
     existing = None
-    if resume_data.get("name") and resume_data["name"] != "Unknown":
-        existing = check_duplicate(db, resume_data["name"])
+
+    if (
+        resume_data.get("name")
+        and resume_data["name"] != "Unknown"
+    ):
+        existing = check_duplicate(
+            db,
+            resume_data["name"]
+        )
+
 
     if existing:
+
         return DuplicateResponse(
             status="duplicate",
             message="Candidate already exists",
             existing_id=existing.id,
             filename=file.filename
         )
+
 
     if (
         resume_data["name"] != "Unknown"
@@ -96,14 +158,17 @@ def upload_document(
             score_breakdown=analysis["score_breakdown"]
         )
 
+
         db.add(candidate)
         db.commit()
         db.refresh(candidate)
+
 
         index_resume(
             document_id=str(candidate.id),
             resume_text=extracted_text
         )
+
 
     return ResumeResponse(
         filename=file.filename,
