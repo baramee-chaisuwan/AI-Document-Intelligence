@@ -5,7 +5,6 @@ from app.models.assistant_model import (
     AssistantResponse
 )
 
-from app.services.assistant_service import ask_assistant
 
 router = APIRouter(
     prefix="/assistant",
@@ -19,7 +18,11 @@ router = APIRouter(
 )
 def assistant(request: AssistantRequest):
 
-    answer = ask_assistant(request.question)
+    from app.services.assistant_service import ask_assistant
+
+    answer = ask_assistant(
+        request.question
+    )
 
     return AssistantResponse(
         answer=answer
