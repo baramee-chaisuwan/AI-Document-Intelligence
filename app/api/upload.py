@@ -1,14 +1,35 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
+
+print("UPLOAD A")
 from app.services.pdf_service import extract_text_from_pdf
+
+print("UPLOAD B")
 from app.services.gemini_service import summarize_document
+
+print("UPLOAD C")
 from app.services.extraction_service import extract_resume_data
+
+print("UPLOAD D")
 from app.services.analyzer_service import analyze_resume
+
+print("UPLOAD E")
 from app.models.resume_model import ResumeResponse, DuplicateResponse
+
+print("UPLOAD F")
 from app.database.database import get_db
+
+print("UPLOAD G")
 from app.database.models import Candidate
+
+print("UPLOAD H")
 from app.services.indexing_service import index_resume
+
+print("UPLOAD I")
 from typing import Union
+
+print("UPLOAD J")
+
 
 def check_duplicate(db, name: str):
     return (
@@ -17,7 +38,12 @@ def check_duplicate(db, name: str):
         .first()
     )
 
-router = APIRouter(prefix="/upload",tags=["Resume Upload"])
+
+router = APIRouter(
+    prefix="/upload",
+    tags=["Resume Upload"]
+)
+
 
 @router.post(
     "/",
