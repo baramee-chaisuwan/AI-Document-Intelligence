@@ -1,56 +1,58 @@
+print("MAIN FILE STARTED", flush=True)
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 
-print("A")
+print("A", flush=True)
 
 from app.database.database import engine, Base
 import app.database.models
 
-print("B")
+print("B", flush=True)
 
 from app.api.health import router as health_router
 
-print("C")
+print("C", flush=True)
 
 from app.api.upload import router as upload_router
 
-print("D")
+print("D", flush=True)
 
 from app.api.candidate import router as candidate_router
 
-print("E")
+print("E", flush=True)
 
 from app.api.export import router as export_router
 
-print("F")
+print("F", flush=True)
 
 from app.api.dashboard import router as dashboard_router
 
-print("G")
+print("G", flush=True)
 
 from app.api.search import router as search_router
 
-print("H")
+print("H", flush=True)
 
 from app.api.assistant import router as assistant_router
 
-print("I")
+print("I", flush=True)
 
 from app.api.recommend import router as recommend_router
 
-print("J")
+print("J", flush=True)
 
 from app.core.exceptions import NotFoundError
 
-print("K")
+print("K", flush=True)
 
 load_dotenv()
 
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as e:
-    print("DB not ready yet:", e)
+    print("DB not ready yet:", e, flush=True)
 
 app = FastAPI(
     title="AI Resume Intelligence API",
