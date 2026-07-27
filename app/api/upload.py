@@ -10,12 +10,10 @@ from app.models.resume_model import (
 from app.database.database import get_db
 from app.database.models import Candidate
 
-
 router = APIRouter(
     prefix="/upload",
     tags=["Resume Upload"]
 )
-
 
 def extract_text_from_pdf(file_bytes):
 
@@ -25,7 +23,6 @@ def extract_text_from_pdf(file_bytes):
 
     return service(file_bytes)
 
-
 def summarize_document(text):
 
     from app.services.gemini_service import (
@@ -33,7 +30,6 @@ def summarize_document(text):
     )
 
     return service(text)
-
 
 def extract_resume_data(text):
 
@@ -43,7 +39,6 @@ def extract_resume_data(text):
 
     return service(text)
 
-
 def analyze_resume(data):
 
     from app.services.analyzer_service import (
@@ -51,7 +46,6 @@ def analyze_resume(data):
     )
 
     return service(data)
-
 
 def index_resume(
     document_id: str,
@@ -67,7 +61,6 @@ def index_resume(
         resume_text
     )
 
-
 def check_duplicate(
     db,
     name: str
@@ -78,7 +71,6 @@ def check_duplicate(
         .filter(Candidate.name == name)
         .first()
     )
-
 
 @router.post(
     "/",
@@ -98,9 +90,7 @@ def upload_document(
             detail="Only PDF files are allowed"
         )
 
-
     file_bytes = file.file.read()
-
 
     extracted_text = extract_text_from_pdf(
         file_bytes
@@ -119,7 +109,6 @@ def upload_document(
         resume_data
     )
 
-
     existing = None
 
     if (
@@ -131,7 +120,6 @@ def upload_document(
             resume_data["name"]
         )
 
-
     if existing:
 
         return DuplicateResponse(
@@ -140,7 +128,6 @@ def upload_document(
             existing_id=existing.id,
             filename=file.filename
         )
-
 
     if (
         resume_data["name"] != "Unknown"
@@ -158,7 +145,6 @@ def upload_document(
             score_breakdown=analysis["score_breakdown"]
         )
 
-
         db.add(candidate)
         db.commit()
         db.refresh(candidate)
@@ -168,7 +154,6 @@ def upload_document(
             document_id=str(candidate.id),
             resume_text=extracted_text
         )
-
 
     return ResumeResponse(
         filename=file.filename,
