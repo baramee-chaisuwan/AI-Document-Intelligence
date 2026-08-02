@@ -173,8 +173,6 @@ def upload_document(
             resume_text=extracted_text
         )
 
-
-    # force cleanup memory
     del file_bytes
     del extracted_text
     gc.collect()

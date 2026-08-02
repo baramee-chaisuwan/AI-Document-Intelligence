@@ -1,7 +1,15 @@
 .venv/
 .env
+
 __pycache__/
+*.pyc
+.pytest_cache/
+
 uploads/
+backend/chroma_db/
+backend/data/
+
 *.db
-chroma_db/
-data/
+
+frontend/node_modules/
+frontend/.next/

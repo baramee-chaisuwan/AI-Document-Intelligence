@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parents[2]
 
-BM25_FILE = Path(
-    "data/bm25_data.json"
-)
+BM25_FILE = BASE_DIR / "data" / "bm25_data.json"
 
 
 def save_bm25_data(
@@ -32,13 +31,11 @@ def save_bm25_data(
             indent=2
         )
 
-
 def load_bm25_data():
 
     if not BM25_FILE.exists():
 
         return [], []
-
 
     with open(
         BM25_FILE,

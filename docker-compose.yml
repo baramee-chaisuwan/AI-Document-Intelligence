@@ -3,7 +3,9 @@ version: "3.9"
 services:
 
   api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: resume_api
     ports:
       - "8000:8000"
@@ -12,8 +14,8 @@ services:
     depends_on:
       - db
     volumes:
-      - .:/app
-      - ./chroma_db:/app/chroma_db
+      - ./backend:/app
+      - ./backend/chroma_db:/app/chroma_db
 
   db:
     image: postgres:16
