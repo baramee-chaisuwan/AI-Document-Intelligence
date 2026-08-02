@@ -124,6 +124,8 @@ def upload_document(
 
 
     existing = None
+    candidate = None
+
 
     if (
         resume_data.get("name")
@@ -173,12 +175,14 @@ def upload_document(
             resume_text=extracted_text
         )
 
+
     del file_bytes
     del extracted_text
     gc.collect()
 
 
     return ResumeResponse(
+        candidate_id=candidate.id if candidate else None,
         filename=file.filename,
         message="File uploaded successfully",
         summary=summary,

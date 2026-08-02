@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
-
 class Education(BaseModel):
     institution: str
     degree: str
@@ -26,16 +25,17 @@ class ResumeData(BaseModel):
     languages: List[str] = []
     education: List[Education] = []
     experience: List[Experience] = []
-    projects: List[Dict[str, Any]] = [] 
+    projects: List[Dict[str, Any]] = []
 
 class ResumeResponse(BaseModel):
+    candidate_id: Optional[int] = None
+
     filename: str
     message: str
     summary: str
 
     resume_data: Dict[str, Any]
     analysis: Dict[str, Any]
-
 
 class DuplicateResponse(BaseModel):
     status: str = "duplicate"

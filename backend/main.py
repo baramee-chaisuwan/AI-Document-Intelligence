@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.database.database import engine, Base
@@ -40,9 +41,23 @@ Features:
     version="1.0.0"
 )
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/docs")
+
 
 app.include_router(health_router)
 app.include_router(upload_router)
@@ -52,6 +67,7 @@ app.include_router(assistant_router)
 app.include_router(recommend_router)
 app.include_router(dashboard_router)
 app.include_router(export_router)
+
 
 @app.exception_handler(NotFoundError)
 def not_found_handler(request: Request, exc: NotFoundError):

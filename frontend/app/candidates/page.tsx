@@ -2,7 +2,10 @@ import AppLayout from "@/components/layout/AppLayout";
 import CandidateTable from "@/components/candidates/CandidateTable";
 import { getCandidates } from "@/services/candidate";
 
+export const dynamic = "force-dynamic";
+
 export default async function CandidatesPage() {
+
     const candidates = await getCandidates();
 
     return (
