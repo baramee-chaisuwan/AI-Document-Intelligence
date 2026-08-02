@@ -12,27 +12,47 @@ export default function AppLayout({
     description,
     children,
 }: AppLayoutProps) {
+
     return (
+
         <div className="min-h-screen bg-slate-100">
+
             <Navbar />
 
             <div className="flex">
+
                 <Sidebar />
 
-                <main className="flex-1 p-8">
-                    <h2 className="text-3xl font-bold">
-                        {title}
-                    </h2>
+                <main className="flex-1 bg-slate-100 p-8">
 
-                    {description && (
-                        <p className="mt-2 text-gray-500">
-                            {description}
-                        </p>
-                    )}
+                    <div className="mx-auto max-w-7xl">
 
-                    {children}
+                        <div className="mb-8">
+
+                            <h2 className="text-3xl font-bold text-slate-900">
+                                {title}
+                            </h2>
+
+                            {description && (
+
+                                <p className="mt-2 text-gray-500">
+                                    {description}
+                                </p>
+
+                            )}
+
+                        </div>
+
+                        {children}
+
+                    </div>
+
                 </main>
+
             </div>
+
         </div>
+
     );
+
 }

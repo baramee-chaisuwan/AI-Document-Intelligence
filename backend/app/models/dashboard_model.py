@@ -27,9 +27,11 @@ class DashboardSummaryResponse(BaseModel):
 class TopCandidateResponse(BaseModel):
     id: int
     name: str
-    skill_score: int
+    ai_score: int
 
 class RecentCandidateResponse(BaseModel):
     id: int
     name: str
+    candidate_level: str
+    ai_score: int
     created_at: datetime
