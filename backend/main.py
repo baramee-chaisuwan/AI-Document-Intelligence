@@ -19,6 +19,8 @@ from app.core.config import (
     APP_VERSION
 )
 from app.core.exceptions import (
+    AuthenticationError,
+    ConflictError,
     NotFoundError
 )
 from app.database.database import (
@@ -51,6 +53,9 @@ from app.api.assistant import (
 )
 from app.api.recommend import (
     router as recommend_router
+)
+from app.api.auth import (
+    router as auth_router
 )
 
 
@@ -197,6 +202,10 @@ app.include_router(
 )
 
 app.include_router(
+    auth_router
+)
+
+app.include_router(
     upload_router
 )
 
@@ -237,6 +246,41 @@ def not_found_handler(
         status_code=404,
         content={
             "detail": exc.message
+        }
+    )
+
+
+@app.exception_handler(
+    ConflictError
+)
+def conflict_handler(
+    request: Request,
+    exc: ConflictError
+):
+
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": exc.message
+        }
+    )
+
+
+@app.exception_handler(
+    AuthenticationError
+)
+def authentication_handler(
+    request: Request,
+    exc: AuthenticationError
+):
+
+    return JSONResponse(
+        status_code=401,
+        content={
+            "detail": exc.message
+        },
+        headers={
+            "WWW-Authenticate": "Bearer"
         }
     )
 
