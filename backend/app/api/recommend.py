@@ -12,20 +12,31 @@ router = APIRouter(
 )
 
 
-def ask_recommendation(question: str):
+def ask_recommendation(
+    question: str
+):
 
     from app.services.rag_service import (
         ask_recommendation as service
     )
 
-    return service(question)
+    return service(
+        question
+    )
 
 
 @router.post(
     "/",
-    response_model=RecommendationResponse
+    response_model=RecommendationResponse,
+    summary="Recommend the best matching candidate"
 )
-def recommend(request: RagRequest):
+def recommend_candidate(
+    request: RagRequest
+):
+    """
+    Compare indexed candidates against a job requirement
+    and return the best-supported recommendation.
+    """
 
     return ask_recommendation(
         request.question

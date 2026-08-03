@@ -1,30 +1,108 @@
-from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Literal
+
+from pydantic import (
+    BaseModel,
+    Field
+)
 
 
 class ScoreBreakdown(BaseModel):
-    python: int
-    sql: int
-    machine_learning: int
-    etl: int
-    experience: int
+
+    python: int = Field(
+        default=0,
+        ge=0
+    )
+
+    sql: int = Field(
+        default=0,
+        ge=0
+    )
+
+    backend: int = Field(
+        default=0,
+        ge=0
+    )
+
+    devops: int = Field(
+        default=0,
+        ge=0
+    )
+
+    ai_domain: int = Field(
+        default=0,
+        ge=0
+    )
+
+    data_domain: int = Field(
+        default=0,
+        ge=0
+    )
+
+    backend_domain: int = Field(
+        default=0,
+        ge=0
+    )
+
+    experience: int = Field(
+        default=0,
+        ge=0
+    )
+
+    projects: int = Field(
+        default=0,
+        ge=0
+    )
+
+    engineering_signal: int = Field(
+        default=0,
+        ge=0
+    )
+
 
 class CandidateAnalysis(BaseModel):
 
-    candidate_level: str
+    candidate_level: Literal[
+        "Entry-Level",
+        "Junior",
+        "Mid-Level",
+        "Senior"
+    ]
 
-    rule_score: int
+    rule_score: int = Field(
+        ge=0,
+        le=100
+    )
 
-    ai_score: int
+    ai_score: int = Field(
+        ge=0,
+        le=100
+    )
 
-    skill_score: int
+    skill_score: int = Field(
+        ge=0,
+        le=100
+    )
 
-    score_breakdown: Dict[str, int]
+    score_breakdown: ScoreBreakdown
 
-    ai_status: str
+    project_count: int = Field(
+        default=0,
+        ge=0
+    )
 
-    recommended_roles: List[str]
+    ai_status: Literal[
+        "success",
+        "fallback"
+    ]
 
-    strengths: List[str]
+    recommended_roles: List[str] = Field(
+        default_factory=list
+    )
 
-    improvement_areas: List[str]
+    strengths: List[str] = Field(
+        default_factory=list
+    )
+
+    improvement_areas: List[str] = Field(
+        default_factory=list
+    )

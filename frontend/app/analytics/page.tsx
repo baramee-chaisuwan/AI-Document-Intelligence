@@ -16,33 +16,24 @@ import {
 
 export default async function AnalyticsPage() {
 
-
     const [
         summary,
         levelDistribution,
         scoreDistribution,
         topCandidates,
     ] = await Promise.all([
-
         getDashboardSummary(),
-
         getLevelDistribution(),
-
         getScoreDistribution(),
-
         getTopCandidates(),
-
     ]);
 
 
     return (
 
         <AppLayout
-
             title="Analytics"
-
             description="AI recruitment insights and candidate performance analysis"
-
         >
 
             <div
@@ -61,24 +52,23 @@ export default async function AnalyticsPage() {
                     value={summary.total_candidates}
                 />
 
-
                 <Card
                     title="Average AI Score"
                     value={summary.average_score}
                 />
-
 
                 <Card
                     title="Highest AI Score"
                     value={summary.top_score}
                 />
 
-
                 <Card
                     title="Top Candidate"
-                    value={summary.top_candidate}
+                    value={
+                        summary.top_candidate
+                        ?? "No candidates"
+                    }
                 />
-
 
             </div>
 
@@ -97,7 +87,6 @@ export default async function AnalyticsPage() {
                     data={levelDistribution ?? []}
                 />
 
-
                 <ScoreChart
                     data={scoreDistribution ?? []}
                 />
@@ -112,7 +101,6 @@ export default async function AnalyticsPage() {
                 />
 
             </div>
-
 
         </AppLayout>
 

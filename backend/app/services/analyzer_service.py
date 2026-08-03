@@ -1,16 +1,29 @@
 import json
+import logging
 import re
 from datetime import datetime
+
 import google.generativeai as genai
 
 from app.core.config import GEMINI_API_KEY
 from app.services.scoring_service import calculate_skill_score
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
 
-RULE_WEIGHT = 0.8   
+logger = logging.getLogger(__name__)
+
+
+genai.configure(
+    api_key=GEMINI_API_KEY
+)
+
+model = genai.GenerativeModel(
+    "gemini-2.5-flash"
+)
+
+
+RULE_WEIGHT = 0.8
 AI_WEIGHT = 0.2
+
 
 ALLOWED_ROLES = [
     "Data Engineer",
@@ -21,141 +34,543 @@ ALLOWED_ROLES = [
 ]
 
 
-def safe_get(data, key):
-    return data.get(key, []) if isinstance(data, dict) else []
+PRESENT_DATE_VALUES = [
+    "present",
+    "current",
+    "now",
+    "ปัจจุบัน"
+]
 
 
-def is_intern(exp):
-    title = exp.get("title", "").lower()
-    company = exp.get("company", "").lower()
+DATE_FORMATS = [
+    "%Y-%m-%d",
+    "%Y-%m",
+    "%m/%Y",
+    "%Y",
+    "%b %Y",
+    "%B %Y",
+    "%b, %Y",
+    "%B, %Y"
+]
 
-    return (
-        "intern" in title or
-        "intern" in company or
-        "trainee" in title or
-        "trainee" in company
+
+def safe_get(
+    data,
+    key
+):
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return []
+
+    value = data.get(
+        key,
+        []
+    )
+
+    if not isinstance(
+        value,
+        list
+    ):
+        return []
+
+    return value
+
+
+def normalize_string_list(
+    value
+):
+
+    if not isinstance(
+        value,
+        list
+    ):
+        return []
+
+    result = []
+
+    for item in value:
+
+        text = str(
+            item or ""
+        ).strip()
+
+        if text:
+            result.append(
+                text
+            )
+
+    return result
+
+
+def is_intern(
+    exp
+):
+
+    if not isinstance(
+        exp,
+        dict
+    ):
+        return False
+
+    title = str(
+        exp.get(
+            "title",
+            ""
+        ) or ""
+    ).lower()
+
+    company = str(
+        exp.get(
+            "company",
+            ""
+        ) or ""
+    ).lower()
+
+    internship_keywords = [
+        "intern",
+        "internship",
+        "trainee",
+        "co-op",
+        "coop"
+    ]
+
+    for keyword in internship_keywords:
+
+        if (
+            keyword in title
+            or keyword in company
+        ):
+            return True
+
+    return False
+
+
+def parse_date(
+    value
+):
+
+    date_text = str(
+        value or ""
+    ).strip()
+
+    if not date_text:
+        return None
+
+    if date_text.lower() in PRESENT_DATE_VALUES:
+        return datetime.now()
+
+    date_text = re.sub(
+        r"\s+",
+        " ",
+        date_text
+    )
+
+    for date_format in DATE_FORMATS:
+
+        try:
+
+            return datetime.strptime(
+                date_text,
+                date_format
+            )
+
+        except ValueError:
+
+            continue
+
+    year_match = re.search(
+        r"\b(19|20)\d{2}\b",
+        date_text
+    )
+
+    if year_match:
+
+        try:
+
+            return datetime(
+                int(
+                    year_match.group()
+                ),
+                1,
+                1
+            )
+
+        except ValueError:
+
+            return None
+
+    return None
+
+
+def calculate_month_difference(
+    start_date,
+    end_date
+):
+
+    if (
+        start_date is None
+        or end_date is None
+    ):
+        return 0
+
+    if end_date < start_date:
+        return 0
+
+    months = (
+        (end_date.year - start_date.year)
+        * 12
+    )
+
+    months += (
+        end_date.month
+        - start_date.month
+    )
+
+    if end_date.day >= start_date.day:
+        months += 1
+
+    return max(
+        months,
+        0
     )
 
 
-def analyze_resume(resume_data):
+def calculate_experience_months(
+    experiences
+):
+
+    total_months = 0
+
+    for exp in experiences:
+
+        if not isinstance(
+            exp,
+            dict
+        ):
+            continue
+
+        if is_intern(
+            exp
+        ):
+            continue
+
+        start_date = parse_date(
+            exp.get(
+                "start_date"
+            )
+        )
+
+        end_date = parse_date(
+            exp.get(
+                "end_date"
+            )
+        )
+
+        total_months += (
+            calculate_month_difference(
+                start_date,
+                end_date
+            )
+        )
+
+    return total_months
+
+
+def determine_candidate_level(
+    experiences
+):
+
+    internships = 0
+
+    for exp in experiences:
+
+        if is_intern(
+            exp
+        ):
+            internships += 1
+
+    experience_months = (
+        calculate_experience_months(
+            experiences
+        )
+    )
+
+    experience_years = (
+        experience_months / 12
+    )
+
+    if experience_years >= 5:
+        return "Senior"
+
+    if experience_years >= 2:
+        return "Mid-Level"
+
+    if (
+        experience_months > 0
+        or internships >= 1
+    ):
+        return "Junior"
+
+    return "Entry-Level"
+
+
+def clean_recommended_roles(
+    roles
+):
+
+    if not isinstance(
+        roles,
+        list
+    ):
+        return ALLOWED_ROLES[:3]
+
+    clean_roles = []
+
+    for role in roles:
+
+        role = str(
+            role or ""
+        ).strip()
+
+        if not role:
+            continue
+
+        if "intern" in role.lower():
+            continue
+
+        for allowed_role in ALLOWED_ROLES:
+
+            if role.lower() == allowed_role.lower():
+
+                if allowed_role not in clean_roles:
+
+                    clean_roles.append(
+                        allowed_role
+                    )
+
+                break
+
+    if not clean_roles:
+        return ALLOWED_ROLES[:3]
+
+    return clean_roles
+
+
+def normalize_ai_score(
+    value,
+    fallback_score
+):
+
+    try:
+
+        ai_score = float(
+            value
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        ai_score = fallback_score
+
+    ai_score = max(
+        0,
+        min(
+            ai_score,
+            100
+        )
+    )
+
+    return round(
+        ai_score
+    )
+
+
+def analyze_resume(
+    resume_data
+):
+
+    if not isinstance(
+        resume_data,
+        dict
+    ):
+
+        raise ValueError(
+            "Resume data must be an object"
+        )
+
+    score_data = calculate_skill_score(
+        resume_data
+    )
+
+    rule_score = score_data.get(
+        "skill_score",
+        0
+    )
+
+    experiences = safe_get(
+        resume_data,
+        "experience"
+    )
+
+    projects = safe_get(
+        resume_data,
+        "projects"
+    )
+
+    candidate_level = (
+        determine_candidate_level(
+            experiences
+        )
+    )
 
     prompt = f"""
-You are a senior recruiter at Google / Meta / Amazon.
+You are a technical recruiter reviewing a candidate resume.
 
-Return ONLY valid JSON.
+Return only valid JSON.
 
-STRICT RULES:
-- MUST choose roles ONLY from this list:
-  {ALLOWED_ROLES}
+Rules:
 
-- DO NOT include "Intern" in any form
-- NEVER create custom job titles
-- Be conservative and realistic
-- Avoid over-claiming seniority
+- Choose recommended roles only from this list:
+  {json.dumps(ALLOWED_ROLES)}
+- Do not recommend internship roles.
+- Do not invent job titles.
+- Base all findings only on the provided resume data.
+- Keep strengths and improvement areas concise.
+- ai_score must be an integer from 0 to 100.
+- Do not determine candidate seniority. The application calculates it.
 
-Schema:
+Return exactly this JSON structure:
+
 {{
-    "candidate_level": "",
     "ai_score": 0,
     "recommended_roles": [],
     "strengths": [],
     "improvement_areas": []
 }}
 
-Resume:
+Resume data:
+
+<resume_data>
 {json.dumps(resume_data, ensure_ascii=False)}
+</resume_data>
 """
 
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
 
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        analysis = json.loads(match.group()) if match else {}
-
-        analysis.setdefault("candidate_level", "Entry-Level")
-        analysis.setdefault("ai_score", 0)
-        analysis.setdefault("recommended_roles", [])
-        analysis.setdefault("strengths", [])
-        analysis.setdefault("improvement_areas", [])
-        analysis["ai_status"] = "success"
-
-        score_data = calculate_skill_score(resume_data)
-        rule_score = score_data["skill_score"]
-
-        try:
-            ai_score = float(analysis.get("ai_score", rule_score))
-        except:
-            ai_score = rule_score
-
-        ai_score = max(0, min(ai_score, 100))
-
-        skill_score = round(
-            (rule_score * RULE_WEIGHT) +
-            (ai_score * AI_WEIGHT)
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0,
+                "response_mime_type": (
+                    "application/json"
+                )
+            }
         )
 
-        experiences = safe_get(resume_data, "experience")
-        projects = safe_get(resume_data, "projects")
+        if (
+            not response
+            or not response.text
+            or not response.text.strip()
+        ):
 
-        internships = 0
-        experience_months = 0
+            raise ValueError(
+                "Gemini returned an empty response"
+            )
 
-        for exp in experiences:
-            if is_intern(exp):
-                internships += 1
-                continue
+        analysis = json.loads(
+            response.text
+        )
 
-        experience_years = experience_months / 12
+        if not isinstance(
+            analysis,
+            dict
+        ):
 
-        if experience_years >= 5:
-            level = "Senior"
-        elif experience_years >= 2:
-            level = "Mid-Level"
-        elif internships >= 1:
-            level = "Junior"
-        else:
-            level = "Entry-Level"
+            raise ValueError(
+                "Gemini analysis must be an object"
+            )
 
-        clean_roles = []
+        ai_score = normalize_ai_score(
+            analysis.get(
+                "ai_score"
+            ),
+            rule_score
+        )
 
-        for role in analysis.get("recommended_roles", []):
-
-            role = role.strip()
-
-            if "intern" in role.lower():
-                continue
-
-            if any(allowed in role for allowed in ALLOWED_ROLES):
-                clean_roles.append(role)
-
-        if not clean_roles:
-            clean_roles = ALLOWED_ROLES[:3]
-
-        analysis["candidate_level"] = level
-        analysis["rule_score"] = rule_score
-        analysis["ai_score"] = ai_score
-        analysis["skill_score"] = skill_score
-        analysis["score_breakdown"] = score_data.get("score_breakdown", {})
-        analysis["project_count"] = len(projects)
-        analysis["recommended_roles"] = clean_roles
-
-        return analysis
-
-    except Exception as e:
-        print("ANALYSIS ERROR:", e)
-
-        score_data = calculate_skill_score(resume_data)
+        skill_score = round(
+            (
+                rule_score
+                * RULE_WEIGHT
+            )
+            +
+            (
+                ai_score
+                * AI_WEIGHT
+            )
+        )
 
         return {
-            "candidate_level": "Entry-Level",
-            "rule_score": score_data["skill_score"],
+            "candidate_level": candidate_level,
+            "rule_score": rule_score,
+            "ai_score": ai_score,
+            "skill_score": skill_score,
+            "score_breakdown": score_data.get(
+                "score_breakdown",
+                {}
+            ),
+            "project_count": len(
+                projects
+            ),
+            "ai_status": "success",
+            "recommended_roles": (
+                clean_recommended_roles(
+                    analysis.get(
+                        "recommended_roles"
+                    )
+                )
+            ),
+            "strengths": normalize_string_list(
+                analysis.get(
+                    "strengths"
+                )
+            ),
+            "improvement_areas": (
+                normalize_string_list(
+                    analysis.get(
+                        "improvement_areas"
+                    )
+                )
+            )
+        }
+
+    except Exception as error:
+
+        logger.exception(
+            "Resume analysis failed"
+        )
+
+        return {
+            "candidate_level": candidate_level,
+            "rule_score": rule_score,
             "ai_score": 0,
-            "skill_score": score_data["skill_score"],
-            "score_breakdown": score_data.get("score_breakdown", {}),
-            "project_count": 0,
+            "skill_score": rule_score,
+            "score_breakdown": score_data.get(
+                "score_breakdown",
+                {}
+            ),
+            "project_count": len(
+                projects
+            ),
             "ai_status": "fallback",
             "recommended_roles": [],
             "strengths": [],
-            "improvement_areas": []
+            "improvement_areas": [],
+            "ai_error": str(
+                error
+            )
         }

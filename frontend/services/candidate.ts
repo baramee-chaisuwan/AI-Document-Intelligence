@@ -1,47 +1,178 @@
+import axios from "axios";
+
 import { api } from "./api";
 
-export async function getCandidates() {
 
-    const response = await api.get(
-        "/candidates/"
-    );
+export interface ScoreBreakdown {
+    python: number;
+    sql: number;
+    backend: number;
+    devops: number;
+    ai_domain: number;
+    data_domain: number;
+    backend_domain: number;
+    experience: number;
+    projects: number;
+    engineering_signal: number;
+}
 
-    return response.data;
+
+export interface Candidate {
+    id: number;
+    name: string;
+    summary: string;
+    candidate_level: string;
+    skill_score: number;
+    rule_score: number;
+    ai_score: number;
+    ai_status: string;
+    score_breakdown: ScoreBreakdown;
+    created_at: string;
+    updated_at?: string;
+}
+
+
+export interface CandidateUpdate {
+    name?: string;
+    summary?: string;
+    candidate_level?: string;
+    skill_score?: number;
+    rule_score?: number;
+    ai_score?: number;
+    ai_status?: string;
+    score_breakdown?: Partial<ScoreBreakdown>;
+}
+
+
+export interface DeleteCandidateResponse {
+    message: string;
+}
+
+
+export async function getCandidates(
+    skip = 0,
+    limit = 10
+): Promise<Candidate[]> {
+
+    try {
+
+        const response = await api.get<Candidate[]>(
+            "/candidates/",
+            {
+                params: {
+                    skip,
+                    limit,
+                },
+            }
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+
+            throw new Error(
+                error.response?.data?.detail
+                ?? "Could not load candidates."
+            );
+
+        }
+
+        throw error;
+
+    }
 
 }
+
 
 export async function getCandidateById(
     id: number
-) {
+): Promise<Candidate> {
 
-    const response = await api.get(
-        `/candidates/${id}`
-    );
+    try {
 
-    return response.data;
+        const response = await api.get<Candidate>(
+            `/candidates/${id}`
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+
+            throw new Error(
+                error.response?.data?.detail
+                ?? "Could not load candidate."
+            );
+
+        }
+
+        throw error;
+
+    }
 
 }
+
 
 export async function deleteCandidate(
     id: number
-) {
+): Promise<DeleteCandidateResponse> {
 
-    await api.delete(
-        `/candidates/${id}`
-    );
+    try {
+
+        const response = await api.delete<DeleteCandidateResponse>(
+            `/candidates/${id}`
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+
+            throw new Error(
+                error.response?.data?.detail
+                ?? "Could not delete candidate."
+            );
+
+        }
+
+        throw error;
+
+    }
 
 }
 
+
 export async function updateCandidate(
     id: number,
-    payload: object
-) {
+    payload: CandidateUpdate
+): Promise<Candidate> {
 
-    const response = await api.put(
-        `/candidates/${id}`,
-        payload
-    );
+    try {
 
-    return response.data;
+        const response = await api.put<Candidate>(
+            `/candidates/${id}`,
+            payload
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+
+            throw new Error(
+                error.response?.data?.detail
+                ?? "Could not update candidate."
+            );
+
+        }
+
+        throw error;
+
+    }
 
 }

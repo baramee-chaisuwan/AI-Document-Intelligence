@@ -1,6 +1,20 @@
-import { Bell } from "lucide-react";
+"use client";
 
-export default function Navbar() {
+import {
+    Bell,
+    Menu,
+    ShieldCheck,
+} from "lucide-react";
+
+
+type NavbarProps = {
+    onMenuClick?: () => void;
+};
+
+
+export default function Navbar({
+    onMenuClick,
+}: NavbarProps) {
 
     return (
 
@@ -14,45 +28,122 @@ export default function Navbar() {
                 items-center
                 justify-between
                 border-b
+                border-gray-200
                 bg-white
-                px-8
+                px-4
                 shadow-sm
+                sm:px-6
+                lg:px-8
             "
         >
 
-            <div>
+            <div
+                className="
+                    flex
+                    items-center
+                    gap-3
+                "
+            >
 
-                <h1 className="text-2xl font-bold text-slate-900">
-                    AI Document Intelligence
-                </h1>
+                <button
+                    type="button"
+                    onClick={onMenuClick}
+                    className="
+                        inline-flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-lg
+                        transition
+                        hover:bg-gray-100
+                        lg:hidden
+                    "
+                    aria-label="Open navigation"
+                >
 
-                <p className="text-sm text-gray-500">
-                    Applicant Tracking System
-                </p>
+                    <Menu size={22} />
+
+                </button>
+
+
+                <div>
+
+                    <h1
+                        className="
+                            text-lg
+                            font-bold
+                            text-slate-900
+                            sm:text-xl
+                            lg:text-2xl
+                        "
+                    >
+                        AI Resume Intelligence
+                    </h1>
+
+                    <p
+                        className="
+                            hidden
+                            text-sm
+                            text-gray-500
+                            sm:block
+                        "
+                    >
+                        Applicant Tracking System
+                    </p>
+
+                </div>
 
             </div>
 
-            <div className="flex items-center gap-6">
+
+
+            <div
+                className="
+                    flex
+                    items-center
+                    gap-4
+                    sm:gap-6
+                "
+            >
 
                 <button
+                    type="button"
                     className="
                         rounded-full
                         p-2
                         transition
-                        hover:bg-slate-100
+                        hover:bg-gray-100
                     "
+                    aria-label="Notifications"
                 >
 
                     <Bell
-                        size={22}
+                        size={20}
                         className="text-gray-600"
                     />
 
                 </button>
 
-                <div className="h-8 w-px bg-gray-200" />
 
-                <div className="flex items-center gap-3">
+                <div
+                    className="
+                        hidden
+                        h-8
+                        w-px
+                        bg-gray-200
+                        sm:block
+                    "
+                />
+
+
+                <div
+                    className="
+                        flex
+                        items-center
+                        gap-3
+                    "
+                >
 
                     <div
                         className="
@@ -63,27 +154,52 @@ export default function Navbar() {
                             justify-center
                             rounded-full
                             bg-blue-600
-                            text-lg
                             font-bold
                             text-white
                         "
                     >
-                        B
+                        AI
                     </div>
 
-                    <div>
 
-                        <p className="font-semibold text-slate-900">
-                            Baramee
+                    <div
+                        className="
+                            hidden
+                            sm:block
+                        "
+                    >
+
+                        <p
+                            className="
+                                font-semibold
+                                text-slate-900
+                            "
+                        >
+                            ATS Admin
                         </p>
 
-                        <div className="flex items-center gap-2">
 
-                            <span className="h-2 w-2 rounded-full bg-green-500" />
+                        <div
+                            className="
+                                flex
+                                items-center
+                                gap-2
+                            "
+                        >
 
-                            <p className="text-xs text-gray-500">
+                            <ShieldCheck
+                                size={14}
+                                className="text-green-600"
+                            />
+
+                            <span
+                                className="
+                                    text-xs
+                                    text-gray-500
+                                "
+                            >
                                 Administrator
-                            </p>
+                            </span>
 
                         </div>
 

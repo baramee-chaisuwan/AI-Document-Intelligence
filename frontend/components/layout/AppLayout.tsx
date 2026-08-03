@@ -1,5 +1,13 @@
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
+
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
+
 
 type AppLayoutProps = {
     title: string;
@@ -7,41 +15,135 @@ type AppLayoutProps = {
     children: React.ReactNode;
 };
 
+
 export default function AppLayout({
     title,
     description,
     children,
 }: AppLayoutProps) {
 
+    const [
+        sidebarOpen,
+        setSidebarOpen,
+    ] = useState(false);
+
+
+    useEffect(() => {
+
+        document.body.style.overflow = (
+            sidebarOpen
+                ? "hidden"
+                : ""
+        );
+
+
+        return () => {
+
+            document.body.style.overflow = "";
+
+        };
+
+    }, [
+        sidebarOpen,
+    ]);
+
+
+    function openSidebar() {
+
+        setSidebarOpen(true);
+
+    }
+
+
+    function closeSidebar() {
+
+        setSidebarOpen(false);
+
+    }
+
+
     return (
 
-        <div className="min-h-screen bg-slate-100">
+        <div
+            className="
+                min-h-screen
+                bg-slate-100
+            "
+        >
 
-            <Navbar />
+            <Navbar
+                onMenuClick={openSidebar}
+            />
 
-            <div className="flex">
 
-                <Sidebar />
+            <div
+                className="
+                    flex
+                    min-h-[calc(100vh-4rem)]
+                "
+            >
 
-                <main className="flex-1 bg-slate-100 p-8">
+                <Sidebar
+                    isOpen={sidebarOpen}
+                    onClose={closeSidebar}
+                />
 
-                    <div className="mx-auto max-w-7xl">
 
-                        <div className="mb-8">
+                <main
+                    className="
+                        min-w-0
+                        flex-1
+                        bg-slate-100
+                        px-4
+                        py-6
+                        sm:px-6
+                        lg:px-8
+                        lg:py-8
+                    "
+                >
 
-                            <h2 className="text-3xl font-bold text-slate-900">
+                    <div
+                        className="
+                            mx-auto
+                            w-full
+                            max-w-7xl
+                        "
+                    >
+
+                        <header className="mb-8">
+
+                            <h1
+                                className="
+                                    text-2xl
+                                    font-bold
+                                    tracking-tight
+                                    text-slate-900
+                                    sm:text-3xl
+                                "
+                            >
                                 {title}
-                            </h2>
+                            </h1>
+
 
                             {description && (
 
-                                <p className="mt-2 text-gray-500">
+                                <p
+                                    className="
+                                        mt-2
+                                        max-w-3xl
+                                        text-sm
+                                        leading-6
+                                        text-gray-500
+                                        sm:text-base
+                                    "
+                                >
                                     {description}
                                 </p>
 
                             )}
 
-                        </div>
+                        </header>
+
 
                         {children}
 

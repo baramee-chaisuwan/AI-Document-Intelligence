@@ -1,11 +1,20 @@
 import Link from "next/link";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { notFound } from "next/navigation";
+
+import {
+    ArrowLeft,
+    Bot,
+    UserRound,
+} from "lucide-react";
 
 import AppLayout from "@/components/layout/AppLayout";
 import ScoreBreakdown from "@/components/candidates/ScoreBreakdown";
+
 import { getCandidateById } from "@/services/candidate";
 
+
 export const dynamic = "force-dynamic";
+
 
 type Props = {
     params: Promise<{
@@ -13,52 +22,71 @@ type Props = {
     }>;
 };
 
-function scoreColor(score: number) {
 
-    if (score >= 80)
+function scoreColor(
+    score: number
+) {
+
+    if (score >= 80) {
         return "bg-green-100 text-green-700";
+    }
 
-    if (score >= 60)
+    if (score >= 60) {
         return "bg-blue-100 text-blue-700";
+    }
 
-    if (score >= 40)
+    if (score >= 40) {
         return "bg-yellow-100 text-yellow-700";
+    }
 
     return "bg-red-100 text-red-700";
 
 }
 
-function levelColor(level: string) {
 
-    switch (level) {
+function levelColor(
+    level: string
+) {
 
-        case "Senior":
+    switch (level.toLowerCase()) {
+
+        case "senior":
             return "bg-purple-100 text-purple-700";
 
-        case "Mid-Level":
+        case "mid-level":
             return "bg-blue-100 text-blue-700";
 
-        case "Junior":
+        case "junior":
             return "bg-green-100 text-green-700";
 
-        default:
+        case "entry-level":
             return "bg-yellow-100 text-yellow-700";
+
+        default:
+            return "bg-gray-100 text-gray-700";
 
     }
 
 }
 
-function statusColor(status: string) {
 
-    switch (status?.toLowerCase()) {
+function statusColor(
+    status: string
+) {
 
-        case "completed":
+    switch (status.toLowerCase()) {
+
+        case "success":
             return "bg-green-100 text-green-700";
 
-        case "processing":
+        case "fallback":
             return "bg-yellow-100 text-yellow-700";
 
+        case "processing":
+            return "bg-blue-100 text-blue-700";
+
         case "failed":
+        case "error":
             return "bg-red-100 text-red-700";
 
         default:
@@ -68,16 +96,73 @@ function statusColor(status: string) {
 
 }
 
+
+function statusLabel(
+    status: string
+) {
+
+    switch (status.toLowerCase()) {
+
+        case "success":
+            return "AI Success";
+
+        case "fallback":
+            return "Rule Fallback";
+
+        case "processing":
+            return "Processing";
+
+        case "failed":
+        case "error":
+            return "Failed";
+
+        default:
+            return status || "Unknown";
+
+    }
+
+}
+
+
 export default async function CandidateDetailPage({
     params,
 }: Props) {
 
-
     const { id } = await params;
 
-    const candidate = await getCandidateById(
-        Number(id)
-    );
+    const candidateId = Number(id);
+
+
+    if (
+        !Number.isInteger(candidateId)
+        || candidateId <= 0
+    ) {
+
+        notFound();
+
+    }
+
+
+    let candidate;
+
+
+    try {
+
+        candidate = await getCandidateById(
+            candidateId
+        );
+
+    } catch {
+
+        notFound();
+
+    }
+
+
+    const aiScore = candidate.ai_score ?? 0;
+    const skillScore = candidate.skill_score ?? 0;
+    const ruleScore = candidate.rule_score ?? 0;
+
 
     return (
 
@@ -95,6 +180,7 @@ export default async function CandidateDetailPage({
                     gap-2
                     rounded-lg
                     border
+                    border-gray-200
                     bg-white
                     px-4
                     py-2
@@ -102,24 +188,24 @@ export default async function CandidateDetailPage({
                     font-medium
                     text-gray-700
                     shadow-sm
-                    transition
+                    transition-colors
                     hover:bg-gray-50
                 "
             >
-
                 <ArrowLeft size={18} />
-
                 Back to Candidates
-
             </Link>
 
-            <div
+
+            <section
                 className="
-                    rounded-xl
+                    rounded-2xl
                     border
+                    border-gray-200
                     bg-white
-                    p-8
+                    p-6
                     shadow-sm
+                    sm:p-8
                 "
             >
 
@@ -134,27 +220,72 @@ export default async function CandidateDetailPage({
                     "
                 >
 
-                    <div>
+                    <div className="min-w-0">
 
-                        <div className="flex items-center gap-3">
+                        <div
+                            className="
+                                flex
+                                items-center
+                                gap-3
+                            "
+                        >
 
-                            <UserRound
-                                size={28}
-                                className="text-blue-600"
-                            />
+                            <div
+                                className="
+                                    flex
+                                    h-12
+                                    w-12
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    bg-blue-50
+                                "
+                            >
+                                <UserRound
+                                    size={26}
+                                    className="text-blue-600"
+                                />
+                            </div>
 
+                            <div className="min-w-0">
 
-                            <h2 className="text-3xl font-bold text-gray-900">
-                                {candidate.name}
-                            </h2>
+                                <h2
+                                    className="
+                                        truncate
+                                        text-2xl
+                                        font-bold
+                                        text-gray-900
+                                        sm:text-3xl
+                                    "
+                                    title={candidate.name}
+                                >
+                                    {candidate.name}
+                                </h2>
+
+                                <p
+                                    className="
+                                        mt-1
+                                        text-sm
+                                        text-gray-500
+                                    "
+                                >
+                                    Candidate #{candidate.id}
+                                </p>
+
+                            </div>
 
                         </div>
 
-                        <p className="mt-3 text-sm text-gray-500">
-                            Candidate ID #{candidate.id}
-                        </p>
 
-                        <div className="mt-4 flex gap-3">
+                        <div
+                            className="
+                                mt-5
+                                flex
+                                flex-wrap
+                                gap-3
+                            "
+                        >
 
                             <span
                                 className={`
@@ -184,127 +315,185 @@ export default async function CandidateDetailPage({
                                 )}
                                 `}
                             >
-                                {candidate.ai_status}
+                                {statusLabel(
+                                    candidate.ai_status
+                                )}
                             </span>
-
 
                         </div>
 
-
                     </div>
 
-                    <div>
 
-                        <span
-                            className={`
-                                rounded-xl
-                                px-5
-                                py-3
-                                text-xl
-                                font-bold
-                                ${scoreColor(
-                                candidate.ai_score
-                            )}
-                            `}
-                        >
-
-                            AI Score {candidate.ai_score}
-
-                        </span>
-
-
+                    <div
+                        className={`
+                            inline-flex
+                            items-center
+                            gap-2
+                            self-start
+                            rounded-xl
+                            px-5
+                            py-3
+                            text-xl
+                            font-bold
+                            md:self-auto
+                            ${scoreColor(aiScore)}
+                        `}
+                    >
+                        <Bot size={21} />
+                        AI Score {aiScore}
                     </div>
-
 
                 </div>
 
+            </section>
 
-            </div>
 
             <div
                 className="
                     mt-6
                     grid
                     gap-6
-                    md:grid-cols-3
+                    sm:grid-cols-2
+                    xl:grid-cols-3
                 "
             >
 
-                <div className="rounded-xl border bg-white p-6 shadow-sm">
+                <ScoreCard
+                    title="Final Skill Score"
+                    value={skillScore}
+                />
 
-                    <p className="text-sm text-gray-500">
-                        Skill Score
-                    </p>
+                <ScoreCard
+                    title="Rule Score"
+                    value={ruleScore}
+                />
 
-                    <p className="mt-3 text-4xl font-bold">
-                        {candidate.skill_score}
-                    </p>
-
-                </div>
-
-                <div className="rounded-xl border bg-white p-6 shadow-sm">
-
-                    <p className="text-sm text-gray-500">
-                        Rule Score
-                    </p>
-
-                    <p className="mt-3 text-4xl font-bold">
-                        {candidate.rule_score}
-                    </p>
-
-                </div>
-
-                <div className="rounded-xl border bg-white p-6 shadow-sm">
-
-                    <p className="text-sm text-gray-500">
-                        AI Score
-                    </p>
-
-                    <p className="mt-3 text-4xl font-bold">
-                        {candidate.ai_score}
-                    </p>
-
-                </div>
-
+                <ScoreCard
+                    title="AI Score"
+                    value={aiScore}
+                />
 
             </div>
 
-            <div
+
+            <section
                 className="
                     mt-6
-                    rounded-xl
+                    rounded-2xl
                     border
+                    border-gray-200
                     bg-white
                     p-6
                     shadow-sm
                 "
             >
 
-                <h3 className="text-lg font-semibold">
+                <h3
+                    className="
+                        text-lg
+                        font-semibold
+                        text-gray-900
+                    "
+                >
                     AI Summary
                 </h3>
 
-
-                <p className="mt-4 whitespace-pre-line leading-7 text-gray-700">
-
-                    {candidate.summary ||
-                        "No AI summary available."
+                <p
+                    className="
+                        mt-4
+                        whitespace-pre-line
+                        leading-7
+                        text-gray-700
+                    "
+                >
+                    {
+                        candidate.summary
+                        || "No AI summary available."
                     }
-
                 </p>
 
+            </section>
 
-            </div>
 
             <ScoreBreakdown
-
                 breakdown={
-                    candidate.score_breakdown ?? {}
+                    candidate.score_breakdown
                 }
-
             />
 
         </AppLayout>
+
+    );
+
+}
+
+
+function ScoreCard({
+    title,
+    value,
+}: {
+    title: string;
+    value: number;
+}) {
+
+    return (
+
+        <div
+            className="
+                rounded-2xl
+                border
+                border-gray-200
+                bg-white
+                p-6
+                shadow-sm
+            "
+        >
+
+            <p
+                className="
+                    text-sm
+                    font-medium
+                    uppercase
+                    tracking-wide
+                    text-gray-500
+                "
+            >
+                {title}
+            </p>
+
+            <div
+                className="
+                    mt-4
+                    flex
+                    items-end
+                    gap-1
+                "
+            >
+
+                <p
+                    className="
+                        text-4xl
+                        font-bold
+                        text-gray-900
+                    "
+                >
+                    {value}
+                </p>
+
+                <span
+                    className="
+                        pb-1
+                        text-sm
+                        text-gray-500
+                    "
+                >
+                    /100
+                </span>
+
+            </div>
+
+        </div>
 
     );
 

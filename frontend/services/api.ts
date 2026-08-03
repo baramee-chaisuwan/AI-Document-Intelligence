@@ -1,8 +1,17 @@
 import axios from "axios";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+if (!apiBaseUrl) {
+    throw new Error(
+        "NEXT_PUBLIC_API_URL is not configured"
+    );
+}
+
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: apiBaseUrl,
+    timeout: 30000,
     headers: {
-        "Content-Type": "application/json",
+        Accept: "application/json",
     },
 });
