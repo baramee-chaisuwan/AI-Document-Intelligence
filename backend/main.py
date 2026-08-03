@@ -75,6 +75,15 @@ ENVIRONMENT = os.getenv(
 ).lower()
 
 
+TESTING = (
+    os.getenv(
+        "TESTING",
+        "false"
+    ).lower()
+    == "true"
+)
+
+
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
@@ -99,7 +108,11 @@ async def lifespan(
         APP_VERSION
     )
 
-    if ENVIRONMENT == "development":
+
+    if (
+        ENVIRONMENT == "development"
+        and not TESTING
+    ):
 
         try:
 
@@ -119,7 +132,9 @@ async def lifespan(
 
             raise
 
+
     yield
+
 
     logger.info(
         "Stopping %s",

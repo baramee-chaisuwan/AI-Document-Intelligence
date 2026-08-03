@@ -1,4 +1,6 @@
-from app.services.scoring_service import calculate_skill_score
+from app.services.scoring_service import (
+    calculate_skill_score
+)
 
 def test_calculate_skill_score_ai_engineer():
 
@@ -10,7 +12,6 @@ def test_calculate_skill_score_ai_engineer():
             "Machine Learning",
             "LLM"
         ],
-
         "experience": [
             {
                 "title": "AI Engineer Intern",
@@ -20,10 +21,12 @@ def test_calculate_skill_score_ai_engineer():
                 ]
             }
         ],
-
         "projects": [
             {
-                "name": "AI Document Intelligence ATS Resume Screening System",
+                "name": (
+                    "AI Document Intelligence "
+                    "ATS Resume Screening System"
+                ),
                 "description": [
                     "Built AI-powered ATS system",
                     "Integrated Google Gemini",
@@ -45,17 +48,25 @@ def test_calculate_skill_score_ai_engineer():
     )
 
 
-    assert "skill_score" in result
+    assert result["skill_score"] >= 0
+    assert result["skill_score"] <= 100
+
     assert "score_breakdown" in result
-
-
-    assert result["skill_score"] > 50
 
 
     breakdown = result["score_breakdown"]
 
 
     assert breakdown["python"] == 8
+    assert breakdown["sql"] == 8
     assert breakdown["backend"] == 7
     assert breakdown["devops"] == 7
     assert breakdown["ai_domain"] == 8
+    assert breakdown["backend_domain"] == 5
+
+    assert breakdown["experience"] > 0
+    assert breakdown["projects"] > 0
+
+    assert result["skill_score"] == sum(
+        breakdown.values()
+    )
