@@ -10,6 +10,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import Union
 import os
 
+from app.api.dependencies import (
+    get_current_staff_user
+)
 from app.models.resume_model import (
     ResumeResponse,
     DuplicateResponse
@@ -284,6 +287,9 @@ def validate_analysis(
 
 @router.post(
     "/",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
     response_model=Union[
         ResumeResponse,
         DuplicateResponse

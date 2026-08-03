@@ -17,6 +17,9 @@ from app.database.models import User
 from main import app
 
 
+pytestmark = pytest.mark.real_auth
+
+
 TEST_JWT_SECRET = (
     "test-only-jwt-secret-that-is-long-enough-"
     "for-authentication-tests"

@@ -1,8 +1,12 @@
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException
 )
 
+from app.api.dependencies import (
+    get_current_staff_user
+)
 from app.models.assistant_model import (
     AssistantRequest,
     AssistantResponse
@@ -28,6 +32,9 @@ def ask_assistant(
 
 @router.post(
     "/",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
     response_model=AssistantResponse
 )
 def assistant_chat(

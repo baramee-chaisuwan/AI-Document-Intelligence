@@ -1,5 +1,11 @@
-from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    Depends
+)
 
+from app.api.dependencies import (
+    get_current_staff_user
+)
 from app.models.rag_model import (
     RagRequest,
     RecommendationResponse
@@ -27,6 +33,9 @@ def ask_recommendation(
 
 @router.post(
     "/",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
     response_model=RecommendationResponse,
     summary="Recommend the best matching candidate"
 )

@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import (
+    get_current_admin_user,
+    get_current_staff_user,
+    get_current_user
+)
 from app.database.database import get_db
 from app.models.candidate_model import CandidateResponse, RankingResponse
 from app.models.candidate_stats_model import CandidateStatsResponse
@@ -14,6 +19,9 @@ router = APIRouter(
 
 @router.get(
     "/",
+    dependencies=[
+        Depends(get_current_user)
+    ],
     response_model=list[CandidateResponse],
     summary="Get all candidates",
     description="Returns a paginated list of candidates ordered by skill score."
@@ -27,6 +35,9 @@ def get_candidates(
 
 @router.get(
     "/search",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
     response_model=list[CandidateResponse],
     summary="Search candidates",
     description="Filter candidates by name, level, or minimum skill score."
@@ -41,6 +52,9 @@ def search_candidates(
 
 @router.get(
     "/stats",
+    dependencies=[
+        Depends(get_current_user)
+    ],
     response_model=CandidateStatsResponse,
     summary="Get candidate statistics",
     description="Returns aggregate counts and average skill score."
@@ -52,6 +66,9 @@ def get_candidate_stats(
 
 @router.get(
     "/ranking",
+    dependencies=[
+        Depends(get_current_user)
+    ],
     response_model=list[RankingResponse],
     summary="Get candidate ranking",
     description="Returns top candidates ordered by skill score, then by ID."
@@ -64,6 +81,9 @@ def get_ranking(
 
 @router.delete(
     "/{candidate_id:int}",
+    dependencies=[
+        Depends(get_current_admin_user)
+    ],
     summary="Delete candidate",
     description="Permanently removes a candidate by ID."
 )
@@ -76,6 +96,9 @@ def delete_candidate(
 
 @router.put(
     "/{candidate_id:int}",
+    dependencies=[
+        Depends(get_current_admin_user)
+    ],
     response_model=CandidateResponse,
     summary="Update candidate",
     description="Updates a candidate's skill score and/or level."
@@ -89,6 +112,9 @@ def update_candidate(
     
 @router.get(
     "/{candidate_id:int}",
+    dependencies=[
+        Depends(get_current_user)
+    ],
     response_model=CandidateResponse,
     summary="Get candidate by ID",
     description="Returns a single candidate by ID."

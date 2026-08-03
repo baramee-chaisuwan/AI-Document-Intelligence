@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import (
+    get_current_staff_user
+)
 from app.database.database import get_db
 from app.models.search_model import (
     SearchRequest,
@@ -30,6 +33,9 @@ def semantic_search(
 
 @router.post(
     "/",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
     response_model=SearchResponse
 )
 def search(
