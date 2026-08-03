@@ -1,8 +1,10 @@
-# AI-powered Resume Screening System (ATS) with RAG, Gemini AI, ChromaDB, FastAPI, PostgreSQL, Docker, and GitHub Actions
+# AI-powered Resume Screening System (ATS) with Next.js, FastAPI, RAG, Gemini AI, ChromaDB, PostgreSQL, Docker, and GitHub Actions
 
-AI-powered Resume Screening System built with FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, Docker, LangChain, and ChromaDB.
+AI-powered Resume Screening System built with Next.js, FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, Docker, LangChain, and ChromaDB.
 
 This project is a lightweight Applicant Tracking System (ATS) that automates resume processing, extracts structured candidate data, and performs AI-assisted evaluation and ranking.
+
+The system provides a full-stack web application for HR users, including candidate management, AI assistant, AI recommendation, analytics dashboard, and resume export functionality.
 
 ---
 
@@ -22,6 +24,11 @@ The system automates resume processing and candidate evaluation through an AI pi
 * Store vectors in ChromaDB
 * Perform semantic search using vector similarity
 * Provide RAG-based candidate recommendation
+* Provide HR web interface using Next.js
+* Visualize candidate analytics through interactive dashboard
+* Provide AI Assistant conversational interface
+* Provide AI-powered candidate recommendation system
+* Export candidate information as CSV
 
 ---
 
@@ -37,36 +44,63 @@ The system automates resume processing and candidate evaluation through an AI pi
 ## Architecture
 
 ```text
-Client Layer
-        ↓
-FastAPI Application Layer
-        ↓
-Service Layer
-        ↓
- ┌───────────────┬────────────────┐
- ↓               ↓                ↓
-Data Layer    AI Processing     RAG Pipeline
-              Layer             Layer
- ↓               ↓                ↓
-PostgreSQL    Gemini AI       Embedding Model
-Database      + PyMuPDF            ↓
-                              ChromaDB
-                                   ↓
-                         Semantic Search
-                    (Vector Similarity Retrieval)
-                                   ↓
-                          Retrieved Context
-                                   ↓
-                              Gemini LLM
+                              HR User
+                                 |
+                                 v
+
+                      +--------------------+
+                      |  Next.js Frontend  |
+                      |                    |
+                      | Dashboard          |
+                      | Candidate UI       |
+                      | AI Assistant       |
+                      | Recommendation     |
+                      | Analytics          |
+                      +--------------------+
+
+                                 |
+                                 |
+                            REST API
+
+                                 |
+                                 v
+
+                      +--------------------+
+                      |  FastAPI Backend   |
+                      |                    |
+                      | API Layer          |
+                      | Service Layer      |
+                      | Repository Layer  |
+                      +--------------------+
+
+              ----------------|----------------
+              |               |               |
+              v               v               v
+
+       +-------------+  +-------------+  +-------------+
+       | PostgreSQL  |  |  RAG        |  | Gemini AI   |
+       | Database    |  | Pipeline    |  | LLM API     |
+       |             |  |             |  |             |
+       | Candidate   |  | Embedding   |  | Analysis    |
+       | Resume Data |  | Retrieval   |  | Generation  |
+       | Scores      |  | ChromaDB    |  | Reasoning   |
+       +-------------+  +-------------+  +-------------+
 ```
 
-The system follows a layered backend architecture with an integrated AI pipeline.
-The FastAPI service layer orchestrates business logic, database operations, and AI workflows.
-The RAG pipeline handles document embedding, vector retrieval, and LLM-based candidate recommendation.
+The system follows a full-stack AI architecture consisting of:
+
+* Next.js Frontend for HR users to manage candidates, search resumes, view analytics, interact with AI Assistant, and receive AI recommendations.
+
+* FastAPI Backend as the main application layer handling REST APIs, business logic, authentication-ready services, and AI workflows.
+
+* PostgreSQL Database for storing candidate profiles, resume information, scores, and analysis results.
+* RAG Pipeline using SentenceTransformer embeddings and ChromaDB for semantic resume retrieval and context-aware AI responses.
+
+* Gemini AI for resume analysis, candidate evaluation, recommendation generation, and AI assistant responses.
 
 ## Architecture Diagram
 
-![System Architecture](assets/screenshots/architecture_v2.png)
+![System Architecture](assets/screenshots/architecture_v2.1.png)
 
 ---
 
@@ -102,9 +136,14 @@ Semantic Search
         ↓
 Retrieved Resume Context
         ↓
-Gemini RAG Recommendation
+Gemini RAG Processing
         ↓
 Expose REST API
+        ↓
+Next.js Web Application
+        ↓
+HR Dashboard / AI Assistant /
+Recommendation / Analytics
 ```
 
 ---
@@ -136,7 +175,7 @@ Expose REST API
 
 ### RAG & AI Recommendation
 
-* Resume embedding generation using SentenceTransformer
+* Resume embedding generation using SentenceTransformer (all-MiniLM-L6-v2)
 * Vector storage with ChromaDB
 * Semantic search using vector similarity
 * Context-aware candidate recommendation using Gemini
@@ -149,6 +188,17 @@ Expose REST API
 * Score distribution
 * Level distribution
 * Recent candidates
+
+### Web Application
+
+* HR dashboard interface
+* Candidate management UI
+* Resume upload interface
+* AI semantic search interface
+* AI Assistant chat interface
+* AI candidate recommendation interface
+* Analytics visualization dashboard
+* CSV export interface
 
 ### Export
 
@@ -164,7 +214,11 @@ Expose REST API
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791)
 ![Gemini](https://img.shields.io/badge/Gemini-AI-8E75B2)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-vector--db-1D9E75)
+![LangChain](https://img.shields.io/badge/LangChain-RAG-orange)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI-2088FF)
+![Next.js](https://img.shields.io/badge/Next.js-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-blue)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC)
 
 ### Backend
 * Python 3.13
@@ -172,6 +226,14 @@ Expose REST API
 * SQLAlchemy (ORM)
 * PostgreSQL (Relational Database)
 * Pydantic (Data Validation)
+
+### Frontend
+
+* Next.js
+* TypeScript
+* Tailwind CSS
+* Recharts
+* Lucide React
 
 ### AI & Document Processing
 * Google Gemini API (LLM-based Resume Analysis)
@@ -194,31 +256,60 @@ Expose REST API
 ```text
 AI-Document-Intelligence/
 │
+├── backend/
+│   │
+│   ├── app/
+│   │   ├── api/                # REST API endpoints
+│   │   ├── core/               # Configuration & exceptions
+│   │   ├── database/           # Database connection & models
+│   │   ├── models/             # Pydantic schemas
+│   │   ├── repositories/       # Data access layer
+│   │   ├── services/           # Business logic & AI services
+│   │   ├── rag/                # RAG pipeline & prompts
+│   │   └── vector/             # Embedding & ChromaDB operations
+│   │
+│   ├── alembic/                # Database migrations
+│   ├── alembic.ini             # Alembic configuration
+│   ├── tests/                  # Pytest test cases
+│   ├── pytest.ini              # Pytest configuration
+│   ├── Dockerfile              # Backend container
+│   ├── requirements.txt        # Python dependencies
+│   └── main.py                 # FastAPI entry point
+│
+├── frontend/
+│   │
+│   ├── app/
+│   │   ├── dashboard/          # HR dashboard page
+│   │   ├── candidates/         # Candidate management pages
+│   │   ├── upload/             # Resume upload page
+│   │   ├── search/             # AI semantic search page
+│   │   ├── assistant/          # AI Assistant chat page
+│   │   ├── recommend/          # AI recommendation page
+│   │   ├── analytics/          # Candidate analytics page
+│   │   └── export/             # Candidate export page
+│   │
+│   ├── components/             # Reusable UI components
+│   │   ├── assistant/          # AI chat components
+│   │   ├── candidates/         # Candidate UI components
+│   │   ├── dashboard/          # Dashboard charts/components
+│   │   ├── layout/             # Navbar, Sidebar, Layout
+│   │   ├── search/             # Search components
+│   │   └── upload/             # Upload components
+│   │
+│   ├── public/                 # Static assets
+│   ├── services/               # Frontend API client services
+│   ├── package.json            # Node dependencies
+│   ├── package-lock.json
+│   └── next.config.ts          # Next.js configuration
+│
+├── docker-compose.yml          # Multi-container orchestration
+│
 ├── .github/
-│   └── workflows/        # GitHub Actions (CI)
+│   └── workflows/              # GitHub Actions CI/CD
 │
-├── app/
-│   ├── api/              # REST API endpoints
-│   ├── core/             # config & exceptions
-│   ├── database/         # DB connection & models
-│   ├── models/           # Pydantic schemas
-│   ├── repositories/     # data access layer
-│   ├── services/         # business logic + AI layer
-│   ├── rag/              # RAG pipeline and prompts
-│   └── vector/           # Embedding and ChromaDB operations
-│
-├── alembic/             # database migrations
-├── alembic.ini          # migration config
-│
-├── main.py              # FastAPI entry point
-├── tests/               # pytest test cases
-├── pytest.ini           # test configuration
-│
-├── docker-compose.yml   # multi-container setup
-├── Dockerfile           # container build
-├── requirements.txt     # dependencies
-│
-└── .gitignore
+├── .env.example                # Environment variables template
+├── .gitignore
+└── README.md
 ```
 
 ---
@@ -252,7 +343,7 @@ This project requires Docker to run PostgreSQL database.
 ### Start database
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
 or
@@ -276,14 +367,31 @@ docker compose up --build
 ### OR Run Locally
 
 ```bash
+cd backend
+
 pip install -r requirements.txt
+
 uvicorn main:app --reload
 ```
 
-### 5.API documentation
+### 5.Frontend Setup
 
-```http
-http://127.0.0.1:8000/docs
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+### 6.Access the application
+
+```text
+Frontend:
+http://localhost:3000
+
+Backend:
+http://localhost:8000/docs
 ```
 
 ---
@@ -486,7 +594,7 @@ Provides aggregated analytics including candidate summary, ranking, score distri
 ### Export
 
 ```http
-GET /candidates/csv
+GET /export/csv
 ```
 
 Exports candidate data as a CSV file.
@@ -544,26 +652,27 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * Error handling with custom exceptions
 * Docker-based deployment workflow
 * CI/CD pipeline (GitHub Actions for CI, auto-deploy to Render for CD)
+* Full-stack application development with Next.js
+* Frontend-backend API integration
 
 ---
 
 ## Future Improvements 
 
-* JWT authentication system
-* Role-based access control (RBAC)
+* JWT Authentication
+* Role-based access control
 * Redis caching
 * Background processing with Celery
-* Job description matching with resume retrieval
-* Advanced reranking model
-* React dashboard
+* Job description matching
+* Cross encoder reranking
 * Production monitoring
-* Multi-environment deployment (Staging / Production)
+* AWS deployment
 
 ---
 
 ## Project Status
 
-**Status:** Version 2.0 - RAG Pipeline Completed
+**Status:** Version 2.0 - Fullstack AI ATS Completed
 
 ### Implemented Features
 
@@ -591,6 +700,15 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 * RAG assistant
 * AI candidate recommendation
 * Automated RAG integration tests
+
+### Version 2.0 Fullstack Features
+
+* Next.js HR dashboard
+* Candidate management interface
+* AI Assistant
+* AI Recommendation
+* Analytics dashboard
+* CSV Export
 
 ---
 
@@ -644,3 +762,35 @@ Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
 ### Export CSV API
 
 ![CSV Export](assets/screenshots/csv-export.png)
+
+---
+
+## Frontend Screenshots
+
+### Dashboard
+
+![Dashboard](assets/screenshots/frontend-dashboard.png)
+
+### Candidate Management
+
+![Candidates](assets/screenshots/frontend-candidates.png)
+
+### AI Search
+
+![Candidates](assets/screenshots/frontend-ai-search.png)
+
+### AI Assistant
+
+![Assistant](assets/screenshots/frontend-assistant.png)
+
+### Recommendation
+
+![Recommendation](assets/screenshots/frontend-recommend.png)
+
+### Analytics
+
+![Analytics](assets/screenshots/frontend-analytics.png)
+
+### Export CSV
+
+![Export CSV](assets/screenshots/frontend-export.png)
