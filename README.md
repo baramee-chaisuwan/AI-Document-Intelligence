@@ -1,406 +1,463 @@
-# AI-powered Resume Screening System (ATS) with Next.js, FastAPI, RAG, Gemini AI, ChromaDB, PostgreSQL, Docker, and GitHub Actions
+# AI Document Intelligence ATS
 
-AI-powered Resume Screening System built with Next.js, FastAPI, Gemini AI, PostgreSQL, SQLAlchemy, Docker, LangChain, and ChromaDB.
+AI Document Intelligence is a full-stack applicant tracking system for ingesting
+PDF resumes, extracting structured candidate information, scoring candidates,
+searching indexed resume evidence, and supporting recruiter workflows with
+Gemini-powered analysis, recommendations, and an HR assistant.
 
-This project is a lightweight Applicant Tracking System (ATS) that automates resume processing, extracts structured candidate data, and performs AI-assisted evaluation and ranking.
+The application combines a Next.js user interface, a FastAPI API, PostgreSQL,
+local ChromaDB and BM25 indexes, SentenceTransformer embeddings, and Google
+Gemini 2.5 Flash. Authentication and role-based access control are enforced by
+the backend and reflected in the frontend.
 
-The system provides a full-stack web application for HR users, including candidate management, AI assistant, AI recommendation, analytics dashboard, and resume export functionality.
+## Implemented features
 
----
-
-## Overview
-
-The system automates resume processing and candidate evaluation through an AI pipeline:
-
-* Upload PDF resumes
-* Extract text from documents
-* Generate AI summaries using Gemini
-* Parse structured candidate data
-* Analyze skills and experience
-* Compute candidate scores (rule-based + AI hybrid)
-* Store results in PostgreSQL
-* Provide search, ranking, and analytics APIs
-* Generate resume embeddings
-* Store vectors in ChromaDB
-* Perform semantic search using vector similarity
-* Provide RAG-based candidate recommendation
-* Provide HR web interface using Next.js
-* Visualize candidate analytics through interactive dashboard
-* Provide AI Assistant conversational interface
-* Provide AI-powered candidate recommendation system
-* Export candidate information as CSV
-
----
-
-## AI Analysis
-
-* Resume summarization using Gemini LLM
-* Skill inference from unstructured text
-* Candidate profiling (Junior / Mid / Senior)
-* AI-based semantic evaluation
-
----
+- Recruiter self-registration, login, logout, and current-user loading
+- bcrypt password hashing and expiring HS256 JWT access tokens
+- Backend RBAC for `admin` and `recruiter` users
+- Interactive CLI for creating administrator accounts
+- PDF validation and text extraction with PyMuPDF
+- Gemini-based resume parsing, summarization, and AI assessment
+- Deterministic skill scoring with AI-assisted final scoring and fallback
+- Candidate list, detail, filtering, ranking, statistics, update, and deletion APIs
+- Dashboard totals, top candidates, recent candidates, score distribution, and level distribution
+- SentenceTransformer embeddings stored in persistent ChromaDB
+- JSON-backed BM25 index and reciprocal-rank-fusion hybrid retrieval
+- Semantic candidate search, RAG assistant, and structured candidate recommendation
+- UTF-8 CSV export with spreadsheet-formula sanitization
+- Next.js dashboard, analytics, candidate, upload, search, assistant, recommendation, and export pages
+- Automated backend tests for authentication, RBAC, CRUD, upload, scoring, search, RAG, dashboard, export, and the admin CLI
 
 ## Architecture
 
 ```text
-                              HR User
-                                 |
-                                 v
-
-                      +--------------------+
-                      |  Next.js Frontend  |
-                      |                    |
-                      | Dashboard          |
-                      | Candidate UI       |
-                      | AI Assistant       |
-                      | Recommendation     |
-                      | Analytics          |
-                      +--------------------+
-
-                                 |
-                                 |
-                            REST API
-
-                                 |
-                                 v
-
-                      +--------------------+
-                      |  FastAPI Backend   |
-                      |                    |
-                      | API Layer          |
-                      | Service Layer      |
-                      | Repository Layer  |
-                      +--------------------+
-
-              ----------------|----------------
-              |               |               |
-              v               v               v
-
-       +-------------+  +-------------+  +-------------+
-       | PostgreSQL  |  |  RAG        |  | Gemini AI   |
-       | Database    |  | Pipeline    |  | LLM API     |
-       |             |  |             |  |             |
-       | Candidate   |  | Embedding   |  | Analysis    |
-       | Resume Data |  | Retrieval   |  | Generation  |
-       | Scores      |  | ChromaDB    |  | Reasoning   |
-       +-------------+  +-------------+  +-------------+
+Browser
+  Next.js App Router + React + TypeScript
+  Auth context, route guard, Axios services, Tailwind CSS, Recharts
+                         |
+                         | HTTP/JSON + Bearer JWT
+                         v
+FastAPI
+  API routers -> services -> repositories
+       |             |             |
+       |             |             +-> SQLAlchemy -> PostgreSQL
+       |             +-> Gemini 2.5 Flash
+       |             +-> PyMuPDF
+       |             +-> SentenceTransformer
+       |             +-> ChromaDB + BM25 JSON -> hybrid RAG
+       +-> Pydantic request/response validation
 ```
-
-The system follows a full-stack AI architecture consisting of:
-
-* Next.js Frontend for HR users to manage candidates, search resumes, view analytics, interact with AI Assistant, and receive AI recommendations.
-
-* FastAPI Backend as the main application layer handling REST APIs, business logic, authentication-ready services, and AI workflows.
-
-* PostgreSQL Database for storing candidate profiles, resume information, scores, and analysis results.
-* RAG Pipeline using SentenceTransformer embeddings and ChromaDB for semantic resume retrieval and context-aware AI responses.
-
-* Gemini AI for resume analysis, candidate evaluation, recommendation generation, and AI assistant responses.
-
-## Architecture Diagram
-
-![System Architecture](assets/screenshots/architecture_v2.1.png)
-
----
-
-## Processing Flow
-
-```text
-Upload Resume (PDF)
-        ↓
-Extract Text (PyMuPDF)
-        ↓
-Gemini AI Analysis
-        ↓
-Structured Data Extraction
-        ↓
-Duplicate Detection
-        ↓
-Rule-based Scoring
-        ↓
-AI Scoring
-        ↓
-Combined Skill Score
-        ↓
-Store Candidate Data
-        ↓
-Index Resume
-        ↓
-Generate Resume Embedding
-        ↓
-Store Vector in ChromaDB
-        ↓
-Semantic Search
-(Vector Similarity Matching)
-        ↓
-Retrieved Resume Context
-        ↓
-Gemini RAG Processing
-        ↓
-Expose REST API
-        ↓
-Next.js Web Application
-        ↓
-HR Dashboard / AI Assistant /
-Recommendation / Analytics
-```
-
----
-
-## Features
-
-### Resume Processing
-
-* Upload PDF resumes
-* Extract text using PyMuPDF
-* Gemini AI-based resume analysis
-* Structured candidate extraction
-* Duplicate detection during ingestion
-
-### Candidate Management
-
-* Get all candidates
-* Get candidate by ID
-* Update candidate information
-* Delete candidate records
-* Search candidates with filters (name, level, score)
-
-### Search & Ranking
-
-* Search candidates by name
-* Filter by candidate level
-* Filter by minimum skill score
-* Ranking system based on skill score
-
-### RAG & AI Recommendation
-
-* Resume embedding generation using SentenceTransformer (all-MiniLM-L6-v2)
-* Vector storage with ChromaDB
-* Semantic search using vector similarity
-* Context-aware candidate recommendation using Gemini
-* AI-generated candidate matching explanation
-
-### Dashboard Analytics
-
-* Dashboard summary
-* Top candidates
-* Score distribution
-* Level distribution
-* Recent candidates
-
-### Web Application
-
-* HR dashboard interface
-* Candidate management UI
-* Resume upload interface
-* AI semantic search interface
-* AI Assistant chat interface
-* AI candidate recommendation interface
-* Analytics visualization dashboard
-* CSV export interface
-
-### Export
-
-* Export candidate data as CSV
-
----
-
-## Tech Stack
-
-![Python](https://img.shields.io/badge/python-3.13-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-005571)
-![Docker](https://img.shields.io/badge/docker-blue)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791)
-![Gemini](https://img.shields.io/badge/Gemini-AI-8E75B2)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-vector--db-1D9E75)
-![LangChain](https://img.shields.io/badge/LangChain-RAG-orange)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI-2088FF)
-![Next.js](https://img.shields.io/badge/Next.js-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-blue)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC)
-
-### Backend
-* Python 3.13
-* FastAPI (REST API Framework)
-* SQLAlchemy (ORM)
-* PostgreSQL (Relational Database)
-* Pydantic (Data Validation)
 
 ### Frontend
 
-* Next.js
-* TypeScript
-* Tailwind CSS
-* Recharts
-* Lucide React
+The frontend is a Next.js 16 App Router application using React 19 and
+TypeScript. Pages under `frontend/app` are composed from reusable components,
+while `frontend/services` contains the typed Axios calls to the backend.
+Authentication state is provided at the root layout by `AuthProvider` and
+`AuthGate`.
 
-### AI & Document Processing
-* Google Gemini API (LLM-based Resume Analysis)
-* PyMuPDF (PDF Text Extraction)
-* LangChain (RAG pipeline orchestration)
-* Sentence Transformers (Embedding model)
-* ChromaDB (Vector database)
+Key routes:
 
-### Infrastructure & DevOps
-* Docker (Containerization)
-* Uvicorn (ASGI Server)
-* GitHub Actions (Continuous Integration)
-* Render (Cloud Deployment)
-* Git / GitHub (Version Control)
+| Route | Purpose |
+| --- | --- |
+| `/login` | Public login page |
+| `/register` | Public recruiter-registration page |
+| `/dashboard` | Candidate summary, charts, top candidates, and recent candidates |
+| `/analytics` | Analytics view backed by dashboard endpoints |
+| `/candidates` | Candidate list and admin-only delete control |
+| `/candidates/{id}` | Candidate profile, scores, and score breakdown |
+| `/upload` | PDF resume ingestion |
+| `/search` | ChromaDB semantic candidate search |
+| `/assistant` | RAG assistant over indexed resume evidence |
+| `/recommend` | Structured candidate recommendation for a job requirement |
+| `/export` | Admin-only CSV export UI |
 
----
+There is no separate backend `/analytics` route; the frontend analytics page
+uses the authenticated `/dashboard/*` endpoints.
 
-## Project Structure
+### Backend
+
+The backend is a synchronous FastAPI application organized into:
+
+- `backend/app/api`: HTTP routes, dependencies, validation, and response mapping
+- `backend/app/services`: authentication, candidate, PDF, Gemini, scoring, indexing, search, and RAG orchestration
+- `backend/app/repositories`: SQLAlchemy data access for users and candidates
+- `backend/app/database`: engine, sessions, and ORM models
+- `backend/app/models`: Pydantic request and response models
+- `backend/app/rag`: prompts, text splitting, model chains, retrieval context, and evaluation helpers
+- `backend/app/vector`: ChromaDB, BM25 persistence, vector operations, and hybrid search
+- `backend/alembic`: PostgreSQL schema migrations
+- `backend/scripts`: administrative CLI tools
+- `backend/tests`: pytest suite
+
+### Data stores and external services
+
+- **PostgreSQL** stores users and candidate records.
+- **ChromaDB** stores resume chunks and normalized embedding vectors at
+  `backend/chroma_db`.
+- **BM25 storage** persists documents and metadata at
+  `backend/data/bm25_data.json` using a temporary file and atomic replacement.
+- **Google Gemini 2.5 Flash** performs resume extraction, summarization, AI
+  assessment, assistant generation, and structured recommendations.
+- **SentenceTransformer** uses `paraphrase-MiniLM-L3-v2` by default. The model
+  is loaded lazily and may be downloaded from Hugging Face on first use.
+
+## Authentication
+
+### Backend flow
+
+Passwords are hashed with bcrypt using 12 rounds. The backend implements signed
+HS256 JWT access tokens containing `sub`, `type`, `iat`, and `exp` claims. It
+does not currently issue refresh tokens or authentication cookies.
+
+| Endpoint | Access | Behavior |
+| --- | --- | --- |
+| `POST /auth/register` | Public | Validates email, full name, and password; creates an active recruiter |
+| `POST /auth/login` | Public | Verifies credentials and active status; returns `access_token`, `token_type`, and `expires_in` |
+| `GET /auth/me` | Authenticated | Resolves the Bearer token and returns the active user |
+
+Registration normalizes email to lowercase and trims the full name. Passwords
+must contain 8-72 characters and must not exceed 72 UTF-8 bytes. Duplicate
+email addresses return `409 Conflict`.
+
+Public registration always creates a user with role `recruiter`. The request
+does not accept a role, and there is no public administrator-registration
+endpoint.
+
+### Frontend flow
+
+The frontend stores the access token in tab-scoped `sessionStorage`. The shared
+Axios request interceptor adds `Authorization: Bearer <token>` to API requests.
+At startup, the auth context calls `GET /auth/me` to load the user.
+
+The Axios response interceptor handles any `401` by clearing the stored token
+and redirecting to `/login`. Logout performs the same local cleanup and uses a
+full redirect to `/login`.
+
+`/login` and `/register` are public. Every other frontend route requires an
+authenticated user. Authenticated users who open either public auth page are
+redirected to `/dashboard`. A successful registration redirects to `/login`
+with a one-time success message.
+
+Because `sessionStorage` is readable by browser JavaScript, production security
+depends on preventing XSS. Moving token delivery to backend-issued HttpOnly,
+Secure, SameSite cookies would require a backend authentication change.
+
+## Authorization and RBAC
+
+The database and Pydantic model define two roles: `admin` and `recruiter`.
+Backend authorization is enforced with FastAPI dependencies.
+
+| Access level | Backend routes |
+| --- | --- |
+| Public | `GET /health/`, `POST /auth/register`, `POST /auth/login` |
+| Authenticated admin or recruiter | `GET /auth/me`, `GET /candidates/`, `GET /candidates/{id}`, `GET /candidates/stats`, `GET /candidates/ranking`, all `GET /dashboard/*` routes |
+| Staff (`admin` or `recruiter`) | `GET /candidates/search`, `POST /upload/`, `POST /search/`, `POST /assistant/`, `POST /recommend/` |
+| Admin only | `PUT /candidates/{id}`, `DELETE /candidates/{id}`, `GET /export/csv` |
+
+Missing, malformed, expired, or otherwise invalid tokens return
+`401 Unauthorized` with `WWW-Authenticate: Bearer`. Tokens for missing or inactive
+users also return `401`. A valid authenticated user without the required role
+receives `403 Forbidden`; admin-only routes return `Admin access required`.
+
+The frontend mirrors these rules: the navbar displays the authenticated user's
+full name and role, recruiters do not see the Export navigation item or
+candidate Delete buttons, and recruiter navigation to `/export` redirects to
+`/dashboard`. The backend remains the authoritative security boundary. The
+admin-only candidate-update API currently has no corresponding update control
+in the frontend.
+
+## Resume and AI pipeline
+
+1. `POST /upload/` reads the uploaded file in memory and enforces a `.pdf`
+   filename, nonempty content, `%PDF-` signature, and configured size limit.
+2. PyMuPDF extracts text from every page. Image-only PDFs without extractable
+   text are rejected.
+3. Gemini extracts normalized name, skills, languages, education, experience,
+   and projects as JSON.
+4. The API checks for an existing candidate with the same extracted name.
+5. Gemini creates a short summary. The rule engine scores technical keywords,
+   experience, projects, and engineering signals; Gemini supplies an AI score.
+6. On successful AI analysis, the final score is:
+
+   ```text
+   skill_score = round(0.8 * rule_score + 0.2 * ai_score)
+   ```
+
+   If AI assessment fails, `ai_status` is `fallback`, `ai_score` is `0`, and
+   `skill_score` uses the rule score.
+7. The candidate is committed to PostgreSQL.
+8. Resume text is split with a recursive character splitter, embedded, and
+   written to ChromaDB and the BM25 JSON store.
+
+The upload API reports a `503` containing the saved candidate ID if PostgreSQL
+succeeds but indexing fails. Indexing attempts to clean partial ChromaDB and
+BM25 data before returning the failure.
+
+### Retrieval behavior
+
+- `POST /search/` performs ChromaDB vector similarity search, removes duplicate
+  candidate IDs, and joins current candidate details from PostgreSQL.
+- The assistant and recommendation paths use hybrid retrieval. Vector and BM25
+  rankings are fused with equal-weight reciprocal rank fusion (`RRF_K = 60`).
+- The assistant builds bounded context from retrieved chunks and returns a
+  no-information response when no evidence is available.
+- Recommendation uses a structured Pydantic response and rejects a generated
+  candidate ID unless it belongs to the retrieved candidate set.
+
+## API summary
+
+The root API route redirects to FastAPI Swagger UI at `/docs`.
+
+| Method | Route | Purpose | Required access |
+| --- | --- | --- | --- |
+| `GET` | `/health/` | Health response | Public |
+| `POST` | `/auth/register` | Create recruiter | Public |
+| `POST` | `/auth/login` | Issue access token | Public |
+| `GET` | `/auth/me` | Current user | Authenticated |
+| `GET` | `/candidates/` | Paginated candidate list | Authenticated |
+| `GET` | `/candidates/search` | Filter by name, level, or minimum AI score | Staff |
+| `GET` | `/candidates/stats` | Count and average AI score | Authenticated |
+| `GET` | `/candidates/ranking` | Candidate ranking ordered by AI score | Authenticated |
+| `GET` | `/candidates/{id}` | Candidate detail | Authenticated |
+| `PUT` | `/candidates/{id}` | Update `candidate_level` and/or `skill_score` | Admin |
+| `DELETE` | `/candidates/{id}` | Delete candidate and associated indexes | Admin |
+| `POST` | `/upload/` | Process and index a PDF resume | Staff |
+| `POST` | `/search/` | Semantic candidate search | Staff |
+| `POST` | `/assistant/` | Ask the RAG assistant | Staff |
+| `POST` | `/recommend/` | Recommend a candidate | Staff |
+| `GET` | `/dashboard/summary` | Dashboard totals and top candidate | Authenticated |
+| `GET` | `/dashboard/top-candidates` | Highest AI scores | Authenticated |
+| `GET` | `/dashboard/score-distribution` | AI-score buckets | Authenticated |
+| `GET` | `/dashboard/level-distribution` | Counts by candidate level | Authenticated |
+| `GET` | `/dashboard/recent-candidates` | Most recently created candidates | Authenticated |
+| `GET` | `/export/csv` | Download timestamped UTF-8 CSV | Admin |
+
+## Repository structure
 
 ```text
 AI-Document-Intelligence/
-│
-├── backend/
-│   │
-│   ├── app/
-│   │   ├── api/                # REST API endpoints
-│   │   ├── core/               # Configuration & exceptions
-│   │   ├── database/           # Database connection & models
-│   │   ├── models/             # Pydantic schemas
-│   │   ├── repositories/       # Data access layer
-│   │   ├── services/           # Business logic & AI services
-│   │   ├── rag/                # RAG pipeline & prompts
-│   │   └── vector/             # Embedding & ChromaDB operations
-│   │
-│   ├── alembic/                # Database migrations
-│   ├── alembic.ini             # Alembic configuration
-│   ├── tests/                  # Pytest test cases
-│   ├── pytest.ini              # Pytest configuration
-│   ├── Dockerfile              # Backend container
-│   ├── requirements.txt        # Python dependencies
-│   └── main.py                 # FastAPI entry point
-│
-├── frontend/
-│   │
-│   ├── app/
-│   │   ├── dashboard/          # HR dashboard page
-│   │   ├── candidates/         # Candidate management pages
-│   │   ├── upload/             # Resume upload page
-│   │   ├── search/             # AI semantic search page
-│   │   ├── assistant/          # AI Assistant chat page
-│   │   ├── recommend/          # AI recommendation page
-│   │   ├── analytics/          # Candidate analytics page
-│   │   └── export/             # Candidate export page
-│   │
-│   ├── components/             # Reusable UI components
-│   │   ├── assistant/          # AI chat components
-│   │   ├── candidates/         # Candidate UI components
-│   │   ├── dashboard/          # Dashboard charts/components
-│   │   ├── layout/             # Navbar, Sidebar, Layout
-│   │   ├── search/             # Search components
-│   │   └── upload/             # Upload components
-│   │
-│   ├── public/                 # Static assets
-│   ├── services/               # Frontend API client services
-│   ├── package.json            # Node dependencies
-│   ├── package-lock.json
-│   └── next.config.ts          # Next.js configuration
-│
-├── docker-compose.yml          # Multi-container orchestration
-│
-├── .github/
-│   └── workflows/              # GitHub Actions CI/CD
-│
-├── .env.example                # Environment variables template
-├── .gitignore
-└── README.md
+|-- backend/
+|   |-- app/
+|   |   |-- api/              # FastAPI routes and auth dependencies
+|   |   |-- core/             # Environment config, security, exceptions
+|   |   |-- database/         # SQLAlchemy engine and ORM models
+|   |   |-- models/           # Pydantic schemas
+|   |   |-- repositories/     # Database access
+|   |   |-- services/         # Business, AI, scoring, and indexing logic
+|   |   |-- rag/              # Prompts, chains, chunking, evaluation
+|   |   `-- vector/           # ChromaDB, BM25, hybrid retrieval
+|   |-- alembic/              # Database migrations
+|   |-- scripts/create_admin.py
+|   |-- tests/
+|   |-- Dockerfile
+|   |-- main.py
+|   `-- requirements.txt
+|-- frontend/
+|   |-- app/                  # Next.js App Router pages
+|   |-- components/           # Auth, layout, candidate, dashboard, UI
+|   |-- contexts/             # Authentication context
+|   |-- lib/                  # Browser token and flash-message storage
+|   |-- services/             # Axios client and API services
+|   |-- types/                # Shared frontend auth types
+|   `-- package.json
+|-- assets/screenshots/
+|-- docs/evaluation.md
+|-- docker-compose.yml
+|-- .env.example
+`-- README.md
 ```
 
----
+## Configuration
 
-## Quick Start
-
-### 1.Clone project
-
-```bash
-git clone https://github.com/baramee-chaisuwan/AI-Document-Intelligence.git
-cd AI-Document-Intelligence
-```
-
-### 2.Setup environment
+Copy the example file and replace placeholders with environment-specific
+values. Never commit a populated `.env` file.
 
 ```bash
 cp .env.example .env
 ```
 
-### .env example
+### Required backend variables
+
+| Variable | Requirement |
+| --- | --- |
+| `DATABASE_URL` | SQLAlchemy PostgreSQL connection URL; no default |
+| `GEMINI_API_KEY` | Google Gemini API key; application import fails if missing |
+| `JWT_SECRET_KEY` | Signing secret; token operations require at least 32 UTF-8 bytes |
+
+`JWT_ALGORITHM` is configurable but the implementation supports only `HS256`.
+
+### Optional backend variables and verified defaults
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_NAME` | `AI Resume Intelligence` | FastAPI title and logs |
+| `APP_VERSION` | `1.0.0` | FastAPI version |
+| `ENVIRONMENT` | `development` | Enables startup `create_all` only in development when not testing |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated allowed browser origins |
+| `JWT_ALGORITHM` | `HS256` | Access-token signature algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access-token lifetime |
+| `MAX_UPLOAD_SIZE_MB` | `10` | Maximum PDF size |
+| `EMBEDDING_MODEL_NAME` | `paraphrase-MiniLM-L3-v2` | SentenceTransformer model |
+| `EMBEDDING_BATCH_SIZE` | `16` | Batch embedding size |
+| `RAG_CHUNK_SIZE` | `1000` | Recursive splitter character size |
+| `RAG_CHUNK_OVERLAP` | `150` | Recursive splitter overlap |
+| `DATABASE_MAX_RETRIES` | `10` | Initial database connection attempts |
+| `DATABASE_RETRY_DELAY_SECONDS` | `3` | Delay between connection attempts |
+| `DATABASE_POOL_SIZE` | `5` | SQLAlchemy pool size |
+| `DATABASE_MAX_OVERFLOW` | `10` | SQLAlchemy pool overflow |
+| `TESTING` | `false` | Skips startup database connection checks when `true` |
+| `PORT` | `8000` | Uvicorn port used by the Docker command |
+
+The current `.env.example` also contains `FRONTEND_URL`, but application code
+does not read it; configure browser access with `CORS_ORIGINS` instead.
+
+### Frontend variable
+
+Create `frontend/.env.local`:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/resume_db
-GEMINI_API_KEY=your_api_key_here
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 3.Start PostgreSQL (Docker)
+`NEXT_PUBLIC_API_URL` is required when the shared Axios client is imported. It
+is public frontend configuration and must not contain a secret.
 
-This project requires Docker to run PostgreSQL database.
+## Local development
 
-### Start database
+### Prerequisites
+
+- Python 3.13 (the version used by the backend Docker image and CI)
+- PostgreSQL 16, or Docker for the provided database service
+- Node.js and npm compatible with Next.js 16
+- A Gemini API key
+
+### 1. Create the environment file
+
+From the repository root:
 
 ```bash
-docker compose up -d postgres
+cp .env.example .env
 ```
 
-or
+When using the provided PostgreSQL container with a locally running backend,
+use this database URL because Compose publishes PostgreSQL on host port `5433`:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/resume_db
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+JWT_SECRET_KEY=REPLACE_WITH_A_RANDOM_SECRET_OF_AT_LEAST_32_BYTES
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+CORS_ORIGINS=http://localhost:3000
+```
+
+The values above are placeholders, not production secrets.
+
+### 2. Start PostgreSQL
 
 ```bash
-docker run -d \
-  --name resume-postgres \
-  -p 5432:5432 \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=resume_db \
-  postgres
+docker compose up -d db
 ```
 
-### 4.Run system (Docker recommended)
+### 3. Install and run the backend
+
+Create a virtual environment from the repository root:
 
 ```bash
-docker compose up --build
+python -m venv .venv
 ```
 
-### OR Run Locally
+Activate it on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Or activate it in PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Install dependencies, apply migrations, and run the API:
 
 ```bash
 cd backend
-
-pip install -r requirements.txt
-
-uvicorn main:app --reload
+python -m pip install -r requirements.txt
+alembic upgrade head
+python -m uvicorn main:app --reload
 ```
 
-### 5.Frontend Setup
+The API is available at `http://localhost:8000`; Swagger UI is at
+`http://localhost:8000/docs`.
+
+### 4. Install and run the frontend
+
+Create `frontend/.env.local` with `NEXT_PUBLIC_API_URL`, then:
 
 ```bash
 cd frontend
-
 npm install
-
 npm run dev
 ```
 
-### 6.Access the application
+The frontend is available at `http://localhost:3000`.
 
-```text
-Frontend:
-http://localhost:3000
+Production validation and build:
 
-Backend:
-http://localhost:8000/docs
+```bash
+npm run lint
+npx tsc --noEmit --incremental false
+npm run build
 ```
 
-### Create the first administrator
+Run the built frontend with:
 
-Apply the database migrations before creating an administrator. The command
-prompts for the email, full name, password, and password confirmation; password
-input is hidden.
+```bash
+npm run start
+```
 
-Locally, run from the backend directory:
+## Docker
+
+`docker-compose.yml` defines two services:
+
+| Service | Container | Published port | Storage |
+| --- | --- | --- | --- |
+| `api` | `resume_api` | `8000:8000` | `./backend:/app` and `./backend/chroma_db:/app/chroma_db` |
+| `db` | `resume_db` | `5433:5432` | Named volume `pgdata` |
+
+The API image uses Python 3.13, installs `backend/requirements.txt`, and runs
+Uvicorn on `0.0.0.0:${PORT:-8000}`. Compose loads the root `.env` for the API
+and overrides `DATABASE_URL` with the internal
+`postgresql://postgres:postgres@db:5432/resume_db` address.
+
+Start and migrate the backend stack:
+
+```bash
+docker compose up -d --build db api
+docker compose exec api alembic upgrade head
+```
+
+Follow API logs:
+
+```bash
+docker compose logs -f api
+```
+
+The Compose file does not define a frontend service. Run the frontend locally
+against `http://localhost:8000` or deploy it separately. Because the backend
+directory is bind-mounted, ChromaDB and `backend/data/bm25_data.json` persist on
+the host; PostgreSQL persists in `pgdata`.
+
+## Create the first administrator
+
+Public registration intentionally creates recruiters only. Create the first
+administrator directly through the interactive bootstrap CLI after applying
+database migrations. It prompts for email, full name, password, and password
+confirmation; passwords are read with `getpass` and are never printed.
+
+Local command from the backend directory:
 
 ```bash
 cd backend
@@ -408,413 +465,137 @@ alembic upgrade head
 python scripts/create_admin.py
 ```
 
-With the Docker API container running:
+Inside the running API container:
 
 ```bash
 docker compose exec api alembic upgrade head
 docker compose exec api python scripts/create_admin.py
 ```
 
-The administrator is created directly in PostgreSQL. No public administrator
-registration endpoint is exposed.
-
----
+The command creates an active `admin`, rejects duplicate email addresses,
+rolls back failures, and exits nonzero on failure.
 
 ## Testing
 
-This project includes automated testing using pytest.
+### Backend
 
-### Run tests locally
+From the backend directory:
 
 ```bash
+cd backend
 pytest -v
 ```
 
-### Test coverage includes:
-
-* API endpoint validation
-* Database operations
-* Service layer logic
-* Resume upload pipeline
-* RAG assistant testing
-* Candidate recommendation testing
-* Vector search testing
-* Semantic search validation
-* Hybrid search validation
-* AI scoring validation
-
----
-
-## CI/CD Pipeline
-
-GitHub Actions is used for Continuous Integration (CI), while Render provides Continuous Deployment (CD).
-
-## CI Steps
-
-### 1. PostgreSQL Service (Test DB)
-
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    env:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: resume_db
-```
-
-### 2. Environment Variables (GitHub Actions)
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/resume_db
-GEMINI_API_KEY=your_api_key
-```
-
-### Required GitHub Secrets
-
-- GEMINI_API_KEY → Google Gemini API key
-
-### 3. Pipeline Steps
-
-* Checkout repository
-* Setup Python
-* Install dependencies
-* Run database migrations (Alembic)
-* Run tests (pytest)
+Or inside the API container:
 
 ```bash
-alembic upgrade head
-pytest -v
+docker compose exec api pytest -v
 ```
 
----
+The suite covers health, authentication, real JWT/RBAC paths, candidates,
+dashboard data, upload orchestration, scoring, semantic and hybrid retrieval,
+assistant/recommendation behavior, CSV export, and the administrator CLI. The
+hybrid-search test loads the SentenceTransformer model, so its first run may
+need network access to download the configured model.
 
-## CI Status
+### Frontend
 
-* Dependency installation
-* Database migration 
-* API tests
-* Service layer validation
+No frontend unit-test runner is configured in `package.json`. The available
+quality checks are:
 
----
-
-## CI Badge
-
-![CI](https://github.com/baramee-chaisuwan/AI-Document-Intelligence/actions/workflows/test.yml/badge.svg)
-
----
-
-## Deployment
-
-The application is deployed on Render.
-
-Render is connected to the GitHub repository and automatically deploys the latest version whenever changes are pushed to the main branch.
-
----
-
-## API Endpoints
-
-### Upload
-
-```http
-POST /upload/
+```bash
+cd frontend
+npm run lint
+npx tsc --noEmit --incremental false
+npm run build
 ```
 
-Upload a PDF resume and process it using the AI pipeline.
+The GitHub Actions workflow currently installs backend dependencies, starts
+PostgreSQL 16, applies Alembic migrations, and runs pytest. It does not run the
+frontend checks.
 
----
+## Operational notes
 
-### Candidates
+- Resume upload, Gemini calls, database writes, and indexing execute in the
+  request path; there is no background worker or queue.
+- PostgreSQL is committed before resume indexing. An indexing failure therefore
+  leaves the candidate row saved and returns its ID in the error response.
+- ChromaDB and BM25 are local persistent stores. Multi-replica deployments need
+  a shared-storage and concurrency design beyond the included single-container
+  Compose setup.
+- Access tokens are not refreshable and are stored in browser
+  `sessionStorage`.
+- Development startup calls `Base.metadata.create_all`, but Alembic migrations
+  remain the required schema-management workflow.
 
-```http
-GET /candidates
-GET /candidates/{id}
-PUT /candidates/{id}
-DELETE /candidates/{id}
-```
+## Screenshots
 
-Manage candidate records stored in the database.
+All images below already exist in `assets/screenshots`.
 
----
+### Frontend
 
-### Search
+#### Dashboard
 
-```http
-GET /candidates/search
-```
+![Frontend dashboard](assets/screenshots/frontend-dashboard.png)
 
-Search candidates using filters such as:
+#### Candidate management
 
-* name
-* candidate level
-* minimum score
+![Frontend candidates](assets/screenshots/frontend-candidates.png)
 
----
+#### AI search
 
-### Ranking
+![Frontend AI search](assets/screenshots/frontend-ai-search.png)
 
-```http
-GET /candidates/ranking
-```
+#### AI assistant
 
-Returns the highest-ranked candidates based on skill score.
+![Frontend assistant](assets/screenshots/frontend-assistant.png)
 
----
+#### Candidate recommendation
 
-### Statistics
+![Frontend recommendation](assets/screenshots/frontend-recommend.png)
 
-```http
-GET /candidates/stats
-```
+#### Analytics
 
-Returns candidate statistics and score averages.
+![Frontend analytics](assets/screenshots/frontend-analytics.png)
 
----
+#### CSV export
 
-### Semantic Search
+![Frontend export](assets/screenshots/frontend-export.png)
 
-```http
-POST /search/
-```
+### API
 
-Performs semantic search using vector similarity retrieval with ChromaDB.
-
----
-
-### AI Recommendation
-
-```http
-POST /recommend/
-```
-
-Provides AI-powered candidate recommendation using RAG retrieval.
-
----
-
-### RAG Assistant
-
-```http
-POST /assistant/
-```
-
-Answers resume-related questions using retrieved candidate context.
-
----
-
-### Dashboard
-
-```http
-GET /dashboard/summary
-GET /dashboard/top-candidates
-GET /dashboard/score-distribution
-GET /dashboard/level-distribution
-GET /dashboard/recent-candidates
-```
-
-Provides aggregated analytics including candidate summary, ranking, score distribution, and recent activity.
-
----
-
-### Export
-
-```http
-GET /export/csv
-```
-
-Exports candidate data as a CSV file.
-
----
-
-## Scoring System
-
-Hybrid candidate scoring approach:
-
-* Rule-based scoring from extracted skills and experience
-* AI-based scoring using Gemini
-* Combined skill score for ranking
-
-```text
-Skill Score = (0.7 × Rule Score) + (0.3 × AI Score)
-```
-
-```json
-{
-  "rule_score": 70,
-  "ai_score": 78,
-  "skill_score": 74
-}
-```
-
----
-
-## Example Output
-
-```json
-{
-  "candidate_level": "Junior",
-  "skill_score": 72,
-  "ai_status": "success"
-}
-```
-
----
-
-## Key Learnings
-
-* FastAPI backend development
-* Clean architecture (Router → Service → Repository)
-* REST API design
-* SQLAlchemy ORM with PostgreSQL
-* AI integration using Gemini API
-* Resume parsing pipeline
-* Retrieval Augmented Generation (RAG)
-* Vector database integration with ChromaDB
-* Semantic search implementation
-* AI recommendation pipeline
-* Duplicate detection system
-* Hybrid candidate scoring system
-* Error handling with custom exceptions
-* Docker-based deployment workflow
-* CI/CD pipeline (GitHub Actions for CI, auto-deploy to Render for CD)
-* Full-stack application development with Next.js
-* Frontend-backend API integration
-
----
-
-## Future Improvements 
-
-* JWT Authentication
-* Role-based access control
-* Redis caching
-* Background processing with Celery
-* Job description matching
-* Cross encoder reranking
-* Production monitoring
-* AWS deployment
-
----
-
-## Project Status
-
-**Status:** Version 2.0 - Fullstack AI ATS Completed
-
-### Implemented Features
-
-* Resume upload and PDF processing
-* AI-powered resume analysis using Gemini
-* Candidate management (CRUD)
-* Search and ranking system
-* Dashboard analytics
-* CSV export
-* Duplicate detection
-* Hybrid candidate scoring (Rule-based + AI)
-* Clean Architecture (Router → Service → Repository)
-* PostgreSQL with Docker
-* Alembic database migrations
-* Automated testing with pytest
-* CI pipeline using GitHub Actions
-* Deployment on Render
-
-### Version 2.0 Implemented Features
-
-* Resume embedding pipeline
-* ChromaDB vector storage
-* Semantic search using ChromaDB vector similarity
-* Hybrid search implementation
-* RAG assistant
-* AI candidate recommendation
-* Automated RAG integration tests
-
-### Version 2.0 Fullstack Features
-
-* Next.js HR dashboard
-* Candidate management interface
-* AI Assistant
-* AI Recommendation
-* Analytics dashboard
-* CSV Export
-
----
-
-### Live Demo
-
-* API: https://ai-document-intelligence-bs16.onrender.com
-* Swagger UI: https://ai-document-intelligence-bs16.onrender.com/docs
-
----
-
-## API Screenshots
-
-### Upload Resume API
+#### Resume upload
 
 ![Upload API](assets/screenshots/upload-api.png)
 
-### Search Candidates API
+#### Candidate filtering and ranking
 
-![Search API](assets/screenshots/search-candidates-api.png)
+![Candidate search API](assets/screenshots/search-candidates-api.png)
 
-### Ranking API
+![Candidate ranking API](assets/screenshots/ranking-api.png)
 
-![Ranking API](assets/screenshots/ranking-api.png)
+#### Semantic search
 
-### Semantic Search
+![Semantic search API](assets/screenshots/semantic-search-api.png)
 
-![Semantic Search API](assets/screenshots/semantic-search-api.png)
+![Semantic search API result](assets/screenshots/semantic-search-api2.png)
 
-![Semantic Search API](assets/screenshots/semantic-search-api2.png)
-
-### AI Recommendation API
-
-![Recommendation API](assets/screenshots/recommend-api.png)
-
-![Recommendation API](assets/screenshots/recommend-api2.png)
-
-### RAG Assistant API
+#### RAG assistant
 
 ![Assistant API](assets/screenshots/assistant-api.png)
 
-![Assistant API](assets/screenshots/assistant-api2.png)
+![Assistant API result](assets/screenshots/assistant-api2.png)
 
-### Dashboard Summary
+#### Recommendation
 
-![Dashboard Summary](assets/screenshots/dashboard-summary.png)
+![Recommendation API](assets/screenshots/recommend-api.png)
 
-### Top Candidates
+![Recommendation API result](assets/screenshots/recommend-api2.png)
 
-![Top Candidates](assets/screenshots/top-candidates.png)
+#### Dashboard and export
 
-### Export CSV API
+![Dashboard summary API](assets/screenshots/dashboard-summary.png)
 
-![CSV Export](assets/screenshots/csv-export.png)
+![Top candidates API](assets/screenshots/top-candidates.png)
 
----
-
-## Frontend Screenshots
-
-### Dashboard
-
-![Dashboard](assets/screenshots/frontend-dashboard.png)
-
-### Candidate Management
-
-![Candidates](assets/screenshots/frontend-candidates.png)
-
-### AI Search
-
-![Candidates](assets/screenshots/frontend-ai-search.png)
-
-### AI Assistant
-
-![Assistant](assets/screenshots/frontend-assistant.png)
-
-### Recommendation
-
-![Recommendation](assets/screenshots/frontend-recommend.png)
-
-### Analytics
-
-![Analytics](assets/screenshots/frontend-analytics.png)
-
-### Export CSV
-
-![Export CSV](assets/screenshots/frontend-export.png)
+![CSV export API](assets/screenshots/csv-export.png)
