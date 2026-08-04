@@ -93,3 +93,31 @@ def get_current_admin_user(
 
 
 require_admin = get_current_admin_user
+
+
+def get_current_staff_user(
+    current_user: User = Depends(
+        get_current_user
+    )
+) -> User:
+
+    allowed_roles = {
+        UserRole.ADMIN.value,
+        UserRole.RECRUITER.value
+    }
+
+    if current_user.role not in allowed_roles:
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Admin or recruiter access required"
+            )
+        )
+
+    return current_user
+
+
+require_staff = get_current_staff_user

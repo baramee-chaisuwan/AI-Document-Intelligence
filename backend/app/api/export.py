@@ -11,6 +11,9 @@ from fastapi.responses import (
 )
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import (
+    get_current_admin_user
+)
 from app.database.database import get_db
 from app.database.models import Candidate
 
@@ -55,6 +58,9 @@ def sanitize_csv_value(
 
 @router.get(
     "/csv",
+    dependencies=[
+        Depends(get_current_admin_user)
+    ],
     summary="Export candidates to CSV",
     description=(
         "Downloads all candidates "

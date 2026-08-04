@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import (
+    get_current_user
+)
 from app.database.database import get_db
 from app.models.dashboard_model import (
     DashboardSummaryResponse,
@@ -15,7 +18,10 @@ from app.services import dashboard_service
 
 router = APIRouter(
     prefix="/dashboard",
-    tags=["Dashboard"]
+    tags=["Dashboard"],
+    dependencies=[
+        Depends(get_current_user)
+    ]
 )
 
 @router.get(

@@ -17,6 +17,9 @@ from app.database.models import User
 from main import app
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
+pytestmark = pytest.mark.real_auth
+
+
 TEST_JWT_SECRET = (
     "test-only-jwt-secret-that-is-long-enough-"
     "for-authentication-tests"
