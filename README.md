@@ -394,6 +394,30 @@ Backend:
 http://localhost:8000/docs
 ```
 
+### Create the first administrator
+
+Apply the database migrations before creating an administrator. The command
+prompts for the email, full name, password, and password confirmation; password
+input is hidden.
+
+Locally, run from the backend directory:
+
+```bash
+cd backend
+alembic upgrade head
+python scripts/create_admin.py
+```
+
+With the Docker API container running:
+
+```bash
+docker compose exec api alembic upgrade head
+docker compose exec api python scripts/create_admin.py
+```
+
+The administrator is created directly in PostgreSQL. No public administrator
+registration endpoint is exposed.
+
 ---
 
 ## Testing

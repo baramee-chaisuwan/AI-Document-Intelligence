@@ -15,7 +15,7 @@ from app.database.database import (
 )
 from app.database.models import User
 from main import app
-
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 TEST_JWT_SECRET = (
     "test-only-jwt-secret-that-is-long-enough-"
@@ -145,7 +145,10 @@ def test_login_returns_access_token(
 
     assert data["token_type"] == "bearer"
     assert data["access_token"]
-    assert data["expires_in"] == 1800
+    assert data["expires_in"] == (
+        ACCESS_TOKEN_EXPIRE_MINUTES
+        * 60
+    )
 
 
 def test_login_rejects_invalid_credentials(

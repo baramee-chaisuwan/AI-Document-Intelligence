@@ -28,6 +28,31 @@ def register_user(
     data: UserRegisterRequest
 ):
 
+    return _create_user(
+        db,
+        data,
+        UserRole.RECRUITER
+    )
+
+
+def create_admin_user(
+    db: Session,
+    data: UserRegisterRequest
+):
+
+    return _create_user(
+        db,
+        data,
+        UserRole.ADMIN
+    )
+
+
+def _create_user(
+    db: Session,
+    data: UserRegisterRequest,
+    role: UserRole
+):
+
     if user_repository.get_user_by_email(
         db,
         data.email
@@ -43,7 +68,7 @@ def register_user(
         hashed_password=hash_password(
             data.password
         ),
-        role=UserRole.RECRUITER.value,
+        role=role.value,
         is_active=True
     )
 
