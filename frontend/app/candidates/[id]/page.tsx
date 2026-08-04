@@ -1,5 +1,11 @@
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
 
 import {
     ArrowLeft,
@@ -10,17 +16,10 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import ScoreBreakdown from "@/components/candidates/ScoreBreakdown";
 
-import { getCandidateById } from "@/services/candidate";
-
-
-export const dynamic = "force-dynamic";
-
-
-type Props = {
-    params: Promise<{
-        id: string;
-    }>;
-};
+import {
+    Candidate,
+    getCandidateById,
+} from "@/services/candidate";
 
 
 function scoreColor(
@@ -124,37 +123,100 @@ function statusLabel(
 }
 
 
-export default async function CandidateDetailPage({
-    params,
-}: Props) {
+export default function CandidateDetailPage() {
 
-    const { id } = await params;
+    const params = useParams<{
+        id: string;
+    }>();
 
-    const candidateId = Number(id);
+    const candidateId = Number(params.id);
+    const isCandidateIdValid = (
+        Number.isInteger(candidateId)
+        && candidateId > 0
+    );
 
+    const [candidate, setCandidate] = (
+        useState<Candidate | null>(null)
+    );
 
-    if (
-        !Number.isInteger(candidateId)
-        || candidateId <= 0
-    ) {
-
-        notFound();
-
-    }
-
-
-    let candidate;
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
 
-    try {
+    useEffect(() => {
 
-        candidate = await getCandidateById(
-            candidateId
+        let active = true;
+
+        if (!isCandidateIdValid) {
+            return;
+        }
+
+        getCandidateById(candidateId)
+            .then((result) => {
+
+                if (active) {
+                    setCandidate(result);
+                }
+
+            })
+            .catch((loadError: unknown) => {
+
+                if (active) {
+                    setError(
+                        loadError instanceof Error
+                            ? loadError.message
+                            : "Candidate could not be loaded."
+                    );
+                }
+
+            })
+            .finally(() => {
+
+                if (active) {
+                    setLoading(false);
+                }
+
+            });
+
+        return () => {
+            active = false;
+        };
+
+    }, [candidateId, isCandidateIdValid]);
+
+
+    const displayError = (
+        isCandidateIdValid
+            ? error
+            : "Candidate ID is invalid."
+    );
+
+
+    if (loading || !candidate) {
+
+        return (
+
+            <AppLayout
+                title="Candidate Detail"
+                description="Candidate profile and AI evaluation"
+            >
+                <Link
+                    href="/candidates"
+                    className="mb-6 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                >
+                    <ArrowLeft size={18} />
+                    Back to Candidates
+                </Link>
+
+                <div
+                    role={displayError ? "alert" : "status"}
+                    className={`rounded-xl border p-6 text-sm ${displayError ? "border-red-200 bg-red-50 text-red-700" : "border-gray-200 bg-white text-gray-500"}`}
+                >
+                    {displayError || "Loading candidate..."}
+                </div>
+            </AppLayout>
+
         );
-
-    } catch {
-
-        notFound();
 
     }
 

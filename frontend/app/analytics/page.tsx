@@ -1,3 +1,10 @@
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
+
 import AppLayout from "@/components/layout/AppLayout";
 
 import Card from "@/components/ui/Card";
@@ -14,22 +21,101 @@ import {
 } from "@/services/dashboard";
 
 
-export const dynamic = "force-dynamic";
+type AnalyticsData = {
+    summary: Awaited<ReturnType<
+        typeof getDashboardSummary
+    >>;
+    levelDistribution: Awaited<ReturnType<
+        typeof getLevelDistribution
+    >>;
+    scoreDistribution: Awaited<ReturnType<
+        typeof getScoreDistribution
+    >>;
+    topCandidates: Awaited<ReturnType<
+        typeof getTopCandidates
+    >>;
+};
 
 
-export default async function AnalyticsPage() {
+export default function AnalyticsPage() {
 
-    const [
+    const [data, setData] = (
+        useState<AnalyticsData | null>(null)
+    );
+
+    const [error, setError] = useState("");
+
+
+    useEffect(() => {
+
+        let active = true;
+
+        Promise.all([
+            getDashboardSummary(),
+            getLevelDistribution(),
+            getScoreDistribution(),
+            getTopCandidates(),
+        ])
+            .then(([
+                summary,
+                levelDistribution,
+                scoreDistribution,
+                topCandidates,
+            ]) => {
+
+                if (active) {
+                    setData({
+                        summary,
+                        levelDistribution,
+                        scoreDistribution,
+                        topCandidates,
+                    });
+                }
+
+            })
+            .catch((loadError: unknown) => {
+
+                if (active) {
+                    setError(
+                        loadError instanceof Error
+                            ? loadError.message
+                            : "Could not load analytics."
+                    );
+                }
+
+            });
+
+        return () => {
+            active = false;
+        };
+
+    }, []);
+
+
+    if (!data) {
+
+        return (
+            <AppLayout
+                title="Analytics"
+                description="AI recruitment insights and candidate performance analysis"
+            >
+                <div
+                    className={`mt-8 rounded-xl border bg-white p-8 text-sm shadow-sm ${error ? "border-red-200 text-red-700" : "border-gray-200 text-gray-500"}`}
+                    role={error ? "alert" : "status"}
+                >
+                    {error || "Loading analytics..."}
+                </div>
+            </AppLayout>
+        );
+
+    }
+
+    const {
         summary,
         levelDistribution,
         scoreDistribution,
         topCandidates,
-    ] = await Promise.all([
-        getDashboardSummary(),
-        getLevelDistribution(),
-        getScoreDistribution(),
-        getTopCandidates(),
-    ]);
+    } = data;
 
 
     return (

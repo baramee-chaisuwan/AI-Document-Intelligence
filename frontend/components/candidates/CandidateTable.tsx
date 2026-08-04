@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { deleteCandidate } from "@/services/candidate";
+import { useAuth } from "@/contexts/AuthContext";
 
 import type {
     Candidate,
@@ -17,6 +18,9 @@ import type {
 
 type CandidateTableProps = {
     candidates: Candidate[];
+    onCandidateDeleted?: (
+        candidateId: number
+    ) => void;
 };
 
 
@@ -127,9 +131,11 @@ function statusLabel(
 
 export default function CandidateTable({
     candidates,
+    onCandidateDeleted,
 }: CandidateTableProps) {
 
     const router = useRouter();
+    const { isAdmin } = useAuth();
 
     const [
         deletingId,
@@ -171,7 +177,17 @@ export default function CandidateTable({
             );
 
 
-            router.refresh();
+            if (onCandidateDeleted) {
+
+                onCandidateDeleted(
+                    candidate.id
+                );
+
+            } else {
+
+                router.refresh();
+
+            }
 
         } catch (error) {
 
@@ -533,6 +549,8 @@ export default function CandidateTable({
                                             </Link>
 
 
+                                            {isAdmin && (
+
                                             <button
                                                 type="button"
                                                 onClick={() =>
@@ -574,6 +592,8 @@ export default function CandidateTable({
                                                         : "Delete"
                                                 }
                                             </button>
+
+                                            )}
 
                                         </div>
 

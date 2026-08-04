@@ -1,3 +1,10 @@
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
+
 import AppLayout from "@/components/layout/AppLayout";
 import Card from "@/components/ui/Card";
 
@@ -15,63 +22,126 @@ import {
 } from "@/services/dashboard";
 
 
-export default async function DashboardPage() {
+type DashboardData = {
+    summary: Awaited<ReturnType<
+        typeof getDashboardSummary
+    >>;
+    levelDistribution: Awaited<ReturnType<
+        typeof getLevelDistribution
+    >>;
+    scoreDistribution: Awaited<ReturnType<
+        typeof getScoreDistribution
+    >>;
+    topCandidates: Awaited<ReturnType<
+        typeof getTopCandidates
+    >>;
+    recentCandidates: Awaited<ReturnType<
+        typeof getRecentCandidates
+    >>;
+    hasDashboardError: boolean;
+};
 
-    const results = await Promise.allSettled([
-        getDashboardSummary(),
-        getLevelDistribution(),
-        getScoreDistribution(),
-        getTopCandidates(),
-        getRecentCandidates(),
-    ]);
+
+export default function DashboardPage() {
+
+    const [data, setData] = (
+        useState<DashboardData | null>(null)
+    );
 
 
-    const summary = (
-        results[0].status === "fulfilled"
-            ? results[0].value
-            : {
-                total_candidates: 0,
-                average_score: 0,
-                top_candidate: null,
-                top_score: 0,
-                junior_count: 0,
-                mid_count: 0,
-                senior_count: 0,
+    useEffect(() => {
+
+        let active = true;
+
+        async function loadDashboard() {
+
+            const results = await Promise.allSettled([
+                getDashboardSummary(),
+                getLevelDistribution(),
+                getScoreDistribution(),
+                getTopCandidates(),
+                getRecentCandidates(),
+            ]);
+
+            if (!active) {
+                return;
             }
-    );
+
+            setData({
+                summary: (
+                    results[0].status === "fulfilled"
+                        ? results[0].value
+                        : {
+                            total_candidates: 0,
+                            average_score: 0,
+                            top_candidate: null,
+                            top_score: 0,
+                            junior_count: 0,
+                            mid_count: 0,
+                            senior_count: 0,
+                        }
+                ),
+                levelDistribution: (
+                    results[1].status === "fulfilled"
+                        ? results[1].value
+                        : []
+                ),
+                scoreDistribution: (
+                    results[2].status === "fulfilled"
+                        ? results[2].value
+                        : []
+                ),
+                topCandidates: (
+                    results[3].status === "fulfilled"
+                        ? results[3].value
+                        : []
+                ),
+                recentCandidates: (
+                    results[4].status === "fulfilled"
+                        ? results[4].value
+                        : []
+                ),
+                hasDashboardError: results.some(
+                    (result) => (
+                        result.status === "rejected"
+                    )
+                ),
+            });
+
+        }
+
+        void loadDashboard();
+
+        return () => {
+            active = false;
+        };
+
+    }, []);
 
 
-    const levelDistribution = (
-        results[1].status === "fulfilled"
-            ? results[1].value
-            : []
-    );
+    if (!data) {
 
+        return (
+            <AppLayout
+                title="Dashboard"
+                description="Welcome to AI Document Intelligence ATS"
+            >
+                <div className="mt-8 rounded-xl border border-gray-200 bg-white p-8 text-sm text-gray-500 shadow-sm">
+                    Loading dashboard...
+                </div>
+            </AppLayout>
+        );
 
-    const scoreDistribution = (
-        results[2].status === "fulfilled"
-            ? results[2].value
-            : []
-    );
+    }
 
-
-    const topCandidates = (
-        results[3].status === "fulfilled"
-            ? results[3].value
-            : []
-    );
-
-
-    const recentCandidates = (
-        results[4].status === "fulfilled"
-            ? results[4].value
-            : []
-    );
-
-
-    const hasDashboardError = results.some(
-        (result) => result.status === "rejected"
-    );
+    const {
+        summary,
+        levelDistribution,
+        scoreDistribution,
+        topCandidates,
+        recentCandidates,
+        hasDashboardError,
+    } = data;
 
 
     const dashboardStats = [

@@ -2,9 +2,12 @@
 
 import {
     Bell,
+    LogOut,
     Menu,
     ShieldCheck,
 } from "lucide-react";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 
 type NavbarProps = {
@@ -15,6 +18,24 @@ type NavbarProps = {
 export default function Navbar({
     onMenuClick,
 }: NavbarProps) {
+
+    const {
+        user,
+        logout,
+    } = useAuth();
+
+    const initials = user?.full_name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("") || "AI";
+
+    const roleLabel = (
+        user?.role === "admin"
+            ? "Administrator"
+            : "Recruiter"
+    );
 
     return (
 
@@ -158,7 +179,7 @@ export default function Navbar({
                             text-white
                         "
                     >
-                        AI
+                        {initials}
                     </div>
 
 
@@ -175,7 +196,7 @@ export default function Navbar({
                                 text-slate-900
                             "
                         >
-                            ATS Admin
+                            {user?.full_name ?? "ATS User"}
                         </p>
 
 
@@ -198,7 +219,7 @@ export default function Navbar({
                                     text-gray-500
                                 "
                             >
-                                Administrator
+                                {roleLabel}
                             </span>
 
                         </div>
@@ -206,6 +227,19 @@ export default function Navbar({
                     </div>
 
                 </div>
+
+
+                <button
+                    type="button"
+                    onClick={logout}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Sign out"
+                >
+                    <LogOut size={17} />
+                    <span className="hidden md:inline">
+                        Logout
+                    </span>
+                </button>
 
             </div>
 

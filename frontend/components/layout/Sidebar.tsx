@@ -15,6 +15,8 @@ import {
     X,
 } from "lucide-react";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 
 const menuItems = [
     {
@@ -56,6 +58,7 @@ const menuItems = [
         title: "Export",
         href: "/export",
         icon: FileDown,
+        adminOnly: true,
     },
 ];
 
@@ -72,6 +75,11 @@ export default function Sidebar({
 }: SidebarProps) {
 
     const pathname = usePathname();
+    const { isAdmin } = useAuth();
+
+    const visibleMenuItems = menuItems.filter(
+        (item) => !item.adminOnly || isAdmin
+    );
 
 
     function handleNavigation() {
@@ -200,7 +208,7 @@ export default function Sidebar({
                     "
                 >
 
-                    {menuItems.map((item) => {
+                    {visibleMenuItems.map((item) => {
 
                         const Icon = item.icon;
 

@@ -189,7 +189,7 @@ export default function RecommendPage() {
     }
 
 
-    function useExample(
+    function applyExample(
         requirement: string
     ) {
 
@@ -414,7 +414,7 @@ export default function RecommendPage() {
                                     type="button"
                                     disabled={loading}
                                     onClick={() =>
-                                        useExample(
+                                        applyExample(
                                             requirement
                                         )
                                     }

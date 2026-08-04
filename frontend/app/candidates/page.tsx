@@ -1,3 +1,9 @@
+"use client";
+
+import {
+    useEffect,
+    useState,
+} from "react";
 import Link from "next/link";
 
 import {
@@ -8,18 +14,73 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import CandidateTable from "@/components/candidates/CandidateTable";
 
-import { getCandidates } from "@/services/candidate";
+import {
+    Candidate,
+    getCandidates,
+} from "@/services/candidate";
 
 
-export const dynamic = "force-dynamic";
+export default function CandidatesPage() {
 
-
-export default async function CandidatesPage() {
-
-    const candidates = await getCandidates(
-        0,
-        50
+    const [candidates, setCandidates] = (
+        useState<Candidate[]>([])
     );
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+
+    useEffect(() => {
+
+        let active = true;
+
+        getCandidates(0, 50)
+            .then((result) => {
+
+                if (active) {
+                    setCandidates(result);
+                }
+
+            })
+            .catch((loadError: unknown) => {
+
+                if (active) {
+                    setError(
+                        loadError instanceof Error
+                            ? loadError.message
+                            : "Could not load candidates."
+                    );
+                }
+
+            })
+            .finally(() => {
+
+                if (active) {
+                    setLoading(false);
+                }
+
+            });
+
+        return () => {
+            active = false;
+        };
+
+    }, []);
+
+
+    function handleCandidateDeleted(
+        candidateId: number
+    ) {
+
+        setCandidates((current) => (
+            current.filter(
+                (candidate) => (
+                    candidate.id !== candidateId
+                )
+            )
+        ));
+
+    }
 
 
     return (
@@ -119,9 +180,31 @@ export default async function CandidatesPage() {
             </div>
 
 
-            <CandidateTable
-                candidates={candidates}
-            />
+            {loading ? (
+
+                <div className="mt-6 rounded-xl border border-gray-200 bg-white p-8 text-sm text-gray-500 shadow-sm">
+                    Loading candidates...
+                </div>
+
+            ) : error ? (
+
+                <div
+                    role="alert"
+                    className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"
+                >
+                    {error}
+                </div>
+
+            ) : (
+
+                <CandidateTable
+                    candidates={candidates}
+                    onCandidateDeleted={
+                        handleCandidateDeleted
+                    }
+                />
+
+            )}
 
         </AppLayout>
 
