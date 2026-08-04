@@ -1,9 +1,11 @@
 "use client";
 
 import {
+    useEffect,
     useState,
 } from "react";
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     BrainCircuit,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { consumeRegistrationSuccess } from "@/lib/registration-flash";
 
 
 export default function LoginPage() {
@@ -24,6 +27,26 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+
+
+    useEffect(() => {
+
+        const timer = window.setTimeout(
+            () => {
+                setSuccess(
+                    consumeRegistrationSuccess()
+                    ?? ""
+                );
+            },
+            0
+        );
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+
+    }, []);
 
 
     async function handleSubmit(
@@ -110,6 +133,17 @@ export default function LoginPage() {
                         onSubmit={handleSubmit}
                         className="mt-7 space-y-5"
                     >
+
+                        {success && (
+
+                            <div
+                                role="status"
+                                className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+                            >
+                                {success}
+                            </div>
+
+                        )}
 
                         <div>
                             <label
@@ -198,6 +232,17 @@ export default function LoginPage() {
                         </button>
 
                     </form>
+
+
+                    <p className="mt-6 text-center text-sm text-gray-500">
+                        Need a recruiter account?{" "}
+                        <Link
+                            href="/register"
+                            className="font-semibold text-blue-600 transition hover:text-blue-700"
+                        >
+                            Create account
+                        </Link>
+                    </p>
 
                 </section>
 

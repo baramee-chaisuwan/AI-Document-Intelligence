@@ -18,6 +18,13 @@ export interface LoginCredentials {
 }
 
 
+export interface RegisterCredentials {
+    full_name: string;
+    email: string;
+    password: string;
+}
+
+
 export interface AccessTokenResponse {
     access_token: string;
     token_type: "bearer";

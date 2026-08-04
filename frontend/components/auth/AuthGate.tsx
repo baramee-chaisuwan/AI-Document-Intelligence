@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const PUBLIC_PATHS = new Set([
     "/login",
+    "/register",
 ]);
 
 const ADMIN_PATHS = new Set([
