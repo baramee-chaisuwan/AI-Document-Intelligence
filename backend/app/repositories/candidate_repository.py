@@ -35,7 +35,7 @@ def delete_candidate(
     candidate: Candidate
 ):
     db.delete(candidate)
-    db.commit()
+    db.flush()
 
 def update_candidate(
     db: Session,
