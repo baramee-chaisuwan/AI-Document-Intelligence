@@ -140,6 +140,16 @@ class Candidate(Base):
         default=dict
     )
 
+    resume_s3_key = Column(
+        String(1024),
+        nullable=True
+    )
+
+    resume_filename = Column(
+        String(255),
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         nullable=False,
