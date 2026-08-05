@@ -17,6 +17,7 @@ from app.database.database import (
     get_db
 )
 from app.database.models import User
+from app.services.s3_storage_service import StoredS3Object
 from main import app
 
 
@@ -389,7 +390,14 @@ def test_recruiter_can_access_staff_endpoints(
         }
     ), patch(
         "app.api.upload.index_resume"
-    ):
+    ), patch(
+        "app.api.upload.store_resume",
+        return_value=StoredS3Object(
+            bucket="test-resume-bucket",
+            key="resumes/test/recruiter-upload.pdf",
+            etag="test-etag"
+        )
+    ) as mock_store:
 
         upload_response = client.post(
             "/upload/",
@@ -410,3 +418,4 @@ def test_recruiter_can_access_staff_endpoints(
     assert assistant_response.status_code == 200
     assert recommend_response.status_code == 200
     assert upload_response.status_code == 200
+    mock_store.assert_called_once()

@@ -4,11 +4,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 
 os.environ["TESTING"] = "true"
 
 from app.database.database import get_db
+from app.services.s3_storage_service import (
+    S3OperationError,
+    StoredS3Object
+)
 from main import app
 
 
@@ -17,11 +22,12 @@ def mock_db():
 
     db = MagicMock()
 
-    def refresh_candidate(candidate):
+    def flush_candidate():
 
+        candidate = db.add.call_args.args[0]
         candidate.id = 123
 
-    db.refresh.side_effect = refresh_candidate
+    db.flush.side_effect = flush_candidate
 
     return db
 
@@ -113,6 +119,42 @@ def test_upload_resume(
         "improvement_areas": []
     }
 
+    operation_order = []
+
+    def add_candidate(candidate):
+
+        operation_order.append("add")
+
+    def flush_candidate():
+
+        operation_order.append("flush")
+        candidate = mock_db.add.call_args.args[0]
+        candidate.id = 123
+
+    def store_candidate_resume(**kwargs):
+
+        operation_order.append("s3_put")
+
+        return StoredS3Object(
+            bucket="ats-resumes-dev-k7m2x9",
+            key="resumes/123/resume-hash.pdf",
+            etag="etag-123"
+        )
+
+    def commit_candidate():
+
+        candidate = mock_db.add.call_args.args[0]
+        assert (
+            candidate.resume_s3_key
+            == "resumes/123/resume-hash.pdf"
+        )
+        assert candidate.resume_filename == "resume.pdf"
+        operation_order.append("commit")
+
+    mock_db.add.side_effect = add_candidate
+    mock_db.flush.side_effect = flush_candidate
+    mock_db.commit.side_effect = commit_candidate
+
     with (
         patch(
             "app.api.upload.check_duplicate",
@@ -136,7 +178,11 @@ def test_upload_resume(
         ) as mock_analyze,
         patch(
             "app.api.upload.index_resume"
-        ) as mock_index
+        ) as mock_index,
+        patch(
+            "app.api.upload.store_resume",
+            side_effect=store_candidate_resume
+        ) as mock_store
     ):
 
         response = client.post(
@@ -207,10 +253,208 @@ def test_upload_resume(
     )
 
     mock_db.add.assert_called_once()
+    mock_db.flush.assert_called_once()
     mock_db.commit.assert_called_once()
-    mock_db.refresh.assert_called_once()
+    mock_db.refresh.assert_not_called()
+    assert operation_order == [
+        "add",
+        "flush",
+        "s3_put",
+        "commit"
+    ]
+
+    candidate = mock_db.add.call_args.args[0]
+    assert (
+        candidate.resume_s3_key
+        == "resumes/123/resume-hash.pdf"
+    )
+    assert candidate.resume_filename == "resume.pdf"
+
+    mock_store.assert_called_once_with(
+        document_id=123,
+        filename="resume.pdf",
+        content=fake_pdf
+    )
 
     mock_index.assert_called_once_with(
         document_id="123",
         resume_text="resume text"
     )
+
+
+def _post_resume_with_mocked_pipeline(
+    client,
+    *,
+    store_result=None,
+    store_error=None,
+    cleanup_error=None
+):
+
+    fake_pdf = (
+        b"%PDF-1.4\n"
+        b"transaction test resume"
+    )
+
+    resume_data = {
+        "name": "Transaction Test Candidate",
+        "skills": ["Python"]
+    }
+
+    analysis = {
+        "candidate_level": "Junior",
+        "skill_score": 80,
+        "rule_score": 81,
+        "ai_score": 82,
+        "ai_status": "success",
+        "score_breakdown": {}
+    }
+
+    with (
+        patch(
+            "app.api.upload.check_duplicate",
+            return_value=None
+        ),
+        patch(
+            "app.api.upload.extract_text_from_pdf",
+            return_value="transaction resume text"
+        ),
+        patch(
+            "app.api.upload.extract_resume_data",
+            return_value=resume_data
+        ),
+        patch(
+            "app.api.upload.summarize_document",
+            return_value="Transaction test summary"
+        ),
+        patch(
+            "app.api.upload.analyze_resume",
+            return_value=analysis
+        ),
+        patch(
+            "app.api.upload.index_resume"
+        ) as mock_index,
+        patch(
+            "app.api.upload.store_resume",
+            return_value=store_result,
+            side_effect=store_error
+        ) as mock_store,
+        patch(
+            "app.api.upload.delete_stored_resume",
+            side_effect=cleanup_error
+        ) as mock_delete
+    ):
+
+        response = client.post(
+            "/upload/",
+            files={
+                "file": (
+                    "transaction-resume.pdf",
+                    BytesIO(fake_pdf),
+                    "application/pdf"
+                )
+            }
+        )
+
+    return {
+        "response": response,
+        "store": mock_store,
+        "delete": mock_delete,
+        "index": mock_index,
+        "file_bytes": fake_pdf
+    }
+
+
+def test_s3_upload_failure_rolls_back_without_committing(
+    client,
+    mock_db
+):
+
+    result = _post_resume_with_mocked_pipeline(
+        client,
+        store_error=S3OperationError(
+            "S3 PutObject failed"
+        )
+    )
+
+    assert result["response"].status_code == 503
+    assert result["response"].json() == {
+        "detail": (
+            "Resume storage service "
+            "is unavailable"
+        )
+    }
+    mock_db.add.assert_called_once()
+    mock_db.flush.assert_called_once()
+    mock_db.rollback.assert_called_once()
+    mock_db.commit.assert_not_called()
+    result["delete"].assert_not_called()
+    result["index"].assert_not_called()
+
+
+def test_commit_failure_rolls_back_and_deletes_uploaded_object(
+    client,
+    mock_db
+):
+
+    object_key = (
+        "resumes/123/transaction-resume-hash.pdf"
+    )
+    mock_db.commit.side_effect = SQLAlchemyError(
+        "commit failed"
+    )
+
+    result = _post_resume_with_mocked_pipeline(
+        client,
+        store_result=StoredS3Object(
+            bucket="ats-resumes-dev-k7m2x9",
+            key=object_key,
+            etag="etag-123"
+        )
+    )
+
+    assert result["response"].status_code == 500
+    assert result["response"].json() == {
+        "detail": "Candidate could not be saved"
+    }
+    mock_db.flush.assert_called_once()
+    mock_db.commit.assert_called_once()
+    mock_db.rollback.assert_called_once()
+    result["delete"].assert_called_once_with(
+        object_key
+    )
+    result["index"].assert_not_called()
+
+
+def test_cleanup_failure_does_not_replace_commit_failure(
+    client,
+    mock_db,
+    caplog
+):
+
+    object_key = (
+        "resumes/123/cleanup-failure-hash.pdf"
+    )
+    mock_db.commit.side_effect = SQLAlchemyError(
+        "original commit failure"
+    )
+
+    result = _post_resume_with_mocked_pipeline(
+        client,
+        store_result=StoredS3Object(
+            bucket="ats-resumes-dev-k7m2x9",
+            key=object_key,
+            etag="etag-123"
+        ),
+        cleanup_error=S3OperationError(
+            "cleanup failed"
+        )
+    )
+
+    assert result["response"].status_code == 500
+    assert result["response"].json() == {
+        "detail": "Candidate could not be saved"
+    }
+    result["delete"].assert_called_once_with(
+        object_key
+    )
+    assert "S3 compensation failed" in caplog.text

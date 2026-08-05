@@ -8,6 +8,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Union
+import logging
 import os
 
 from app.api.dependencies import (
@@ -20,6 +21,12 @@ from app.models.resume_model import (
 
 from app.database.database import get_db
 from app.database.models import Candidate
+from app.services.s3_storage_service import (
+    S3StorageError
+)
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/upload",
@@ -80,6 +87,34 @@ def index_resume(
     return service(
         document_id,
         resume_text
+    )
+
+def store_resume(
+    document_id,
+    filename,
+    content
+):
+
+    from app.services.s3_storage_service import (
+        put_object
+    )
+
+    return put_object(
+        document_id=document_id,
+        filename=filename,
+        content=content
+    )
+
+def delete_stored_resume(
+    object_key
+):
+
+    from app.services.s3_storage_service import (
+        delete_object
+    )
+
+    return delete_object(
+        object_key
     )
 
 def check_duplicate(
@@ -469,15 +504,60 @@ def upload_document(
             )
         )
 
+        stored_resume = None
+
         try:
 
             db.add(candidate)
-            db.commit()
-            db.refresh(candidate)
+            db.flush()
 
-        except SQLAlchemyError:
+            stored_resume = store_resume(
+                document_id=candidate.id,
+                filename=filename,
+                content=file_bytes
+            )
+
+            candidate.resume_s3_key = (
+                stored_resume.key
+            )
+            candidate.resume_filename = (
+                filename
+            )
+
+            db.commit()
+
+        except S3StorageError as error:
 
             db.rollback()
+
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Resume storage "
+                    "service is unavailable"
+                )
+            ) from error
+
+        except SQLAlchemyError as error:
+
+            db.rollback()
+
+            if stored_resume is not None:
+
+                try:
+
+                    delete_stored_resume(
+                        stored_resume.key
+                    )
+
+                except S3StorageError:
+
+                    logger.exception(
+                        "S3 compensation failed after "
+                        "candidate persistence failure: "
+                        "candidate_id=%s",
+                        candidate.id
+                    )
 
             raise HTTPException(
                 status_code=500,
@@ -485,7 +565,7 @@ def upload_document(
                     "Candidate could "
                     "not be saved"
                 )
-            )
+            ) from error
 
         try:
 
