@@ -60,17 +60,23 @@ jobs:
       - name: Wait for PostgreSQL
         run: |
           for i in {1..10}; do
-            pg_isready -h localhost -p 5432 -U postgres -d resume_db && break
+            if pg_isready -h localhost -p 5432 -U postgres -d resume_db; then
+              exit 0
+            fi
+
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
 
+          echo "PostgreSQL did not become ready"
+          exit 1
+
       - name: Run Alembic Migrations
         working-directory: backend
         run: |
-          alembic upgrade head
+          python -m alembic upgrade head
 
       - name: Run Tests
         working-directory: backend
         run: |
-          pytest -v --disable-warnings --maxfail=1
+          python -m pytest -q
