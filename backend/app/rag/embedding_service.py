@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import threading
 
@@ -22,6 +23,8 @@ EMBEDDING_BATCH_SIZE = int(
         "16"
     )
 )
+
+EMBEDDING_DIMENSION = 384
 
 
 embedding_model = None
@@ -49,10 +52,24 @@ def get_model():
                         EMBEDDING_MODEL_NAME
                     )
 
-                    embedding_model = SentenceTransformer(
+                    candidate_model = SentenceTransformer(
                         EMBEDDING_MODEL_NAME,
                         device="cpu"
                     )
+
+                    model_dimension = (
+                        candidate_model
+                        .get_embedding_dimension()
+                    )
+
+                    if model_dimension != EMBEDDING_DIMENSION:
+
+                        raise RuntimeError(
+                            "Embedding model dimension does not "
+                            f"match the required {EMBEDDING_DIMENSION}"
+                        )
+
+                    embedding_model = candidate_model
 
                 except Exception as error:
 
@@ -65,6 +82,52 @@ def get_model():
                     ) from error
 
     return embedding_model
+
+
+def normalize_embedding(
+    embedding
+):
+
+    try:
+
+        values = embedding.tolist()
+
+    except AttributeError:
+
+        values = embedding
+
+    if not isinstance(values, list):
+
+        raise ValueError(
+            "Embedding must be a list"
+        )
+
+    if len(values) != EMBEDDING_DIMENSION:
+
+        raise ValueError(
+            "Embedding dimension must be "
+            f"{EMBEDDING_DIMENSION}"
+        )
+
+    normalized_values = []
+
+    for value in values:
+
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+        ):
+
+            raise ValueError(
+                "Embedding values must be finite numbers"
+            )
+
+        normalized_values.append(
+            float(value)
+        )
+
+    return normalized_values
 
 
 def validate_text(

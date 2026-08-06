@@ -10,9 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 os.environ["TESTING"] = "true"
 
 from app.database.database import get_db
-from app.services.s3_storage_service import (
-    S3OperationError,
-    StoredS3Object
+from app.services.gcs_storage_service import (
+    GCSOperationError,
+    StoredGCSObject
+)
+from app.services.indexing_service import (
+    ResumeIndexingError
 )
 from main import app
 
@@ -133,10 +136,10 @@ def test_upload_resume(
 
     def store_candidate_resume(**kwargs):
 
-        operation_order.append("s3_put")
+        operation_order.append("gcs_upload")
 
-        return StoredS3Object(
-            bucket="ats-resumes-dev-k7m2x9",
+        return StoredGCSObject(
+            bucket="ats-resumes-test",
             key="resumes/123/resume-hash.pdf",
             etag="etag-123"
         )
@@ -145,11 +148,15 @@ def test_upload_resume(
 
         candidate = mock_db.add.call_args.args[0]
         assert (
-            candidate.resume_s3_key
+            candidate.resume_storage_key
             == "resumes/123/resume-hash.pdf"
         )
         assert candidate.resume_filename == "resume.pdf"
         operation_order.append("commit")
+
+    def index_candidate(**kwargs):
+
+        operation_order.append("index")
 
     mock_db.add.side_effect = add_candidate
     mock_db.flush.side_effect = flush_candidate
@@ -177,7 +184,8 @@ def test_upload_resume(
             return_value=analysis
         ) as mock_analyze,
         patch(
-            "app.api.upload.index_resume"
+            "app.api.upload.index_resume",
+            side_effect=index_candidate
         ) as mock_index,
         patch(
             "app.api.upload.store_resume",
@@ -259,13 +267,14 @@ def test_upload_resume(
     assert operation_order == [
         "add",
         "flush",
-        "s3_put",
+        "gcs_upload",
+        "index",
         "commit"
     ]
 
     candidate = mock_db.add.call_args.args[0]
     assert (
-        candidate.resume_s3_key
+        candidate.resume_storage_key
         == "resumes/123/resume-hash.pdf"
     )
     assert candidate.resume_filename == "resume.pdf"
@@ -277,6 +286,7 @@ def test_upload_resume(
     )
 
     mock_index.assert_called_once_with(
+        db=mock_db,
         document_id="123",
         resume_text="resume text"
     )
@@ -287,7 +297,8 @@ def _post_resume_with_mocked_pipeline(
     *,
     store_result=None,
     store_error=None,
-    cleanup_error=None
+    cleanup_error=None,
+    index_error=None
 ):
 
     fake_pdf = (
@@ -331,7 +342,8 @@ def _post_resume_with_mocked_pipeline(
             return_value=analysis
         ),
         patch(
-            "app.api.upload.index_resume"
+            "app.api.upload.index_resume",
+            side_effect=index_error
         ) as mock_index,
         patch(
             "app.api.upload.store_resume",
@@ -364,15 +376,15 @@ def _post_resume_with_mocked_pipeline(
     }
 
 
-def test_s3_upload_failure_rolls_back_without_committing(
+def test_gcs_upload_failure_rolls_back_without_committing(
     client,
     mock_db
 ):
 
     result = _post_resume_with_mocked_pipeline(
         client,
-        store_error=S3OperationError(
-            "S3 PutObject failed"
+        store_error=GCSOperationError(
+            "GCS upload failed"
         )
     )
 
@@ -405,8 +417,8 @@ def test_commit_failure_rolls_back_and_deletes_uploaded_object(
 
     result = _post_resume_with_mocked_pipeline(
         client,
-        store_result=StoredS3Object(
-            bucket="ats-resumes-dev-k7m2x9",
+        store_result=StoredGCSObject(
+            bucket="ats-resumes-test",
             key=object_key,
             etag="etag-123"
         )
@@ -422,7 +434,11 @@ def test_commit_failure_rolls_back_and_deletes_uploaded_object(
     result["delete"].assert_called_once_with(
         object_key
     )
-    result["index"].assert_not_called()
+    result["index"].assert_called_once_with(
+        db=mock_db,
+        document_id="123",
+        resume_text="transaction resume text"
+    )
 
 
 def test_cleanup_failure_does_not_replace_commit_failure(
@@ -440,12 +456,12 @@ def test_cleanup_failure_does_not_replace_commit_failure(
 
     result = _post_resume_with_mocked_pipeline(
         client,
-        store_result=StoredS3Object(
-            bucket="ats-resumes-dev-k7m2x9",
+        store_result=StoredGCSObject(
+            bucket="ats-resumes-test",
             key=object_key,
             etag="etag-123"
         ),
-        cleanup_error=S3OperationError(
+        cleanup_error=GCSOperationError(
             "cleanup failed"
         )
     )
@@ -457,4 +473,36 @@ def test_cleanup_failure_does_not_replace_commit_failure(
     result["delete"].assert_called_once_with(
         object_key
     )
-    assert "S3 compensation failed" in caplog.text
+    assert "GCS compensation failed" in caplog.text
+
+
+def test_indexing_failure_rolls_back_and_deletes_uploaded_object(
+    client,
+    mock_db
+):
+
+    object_key = "resumes/123/indexing-failure-hash.pdf"
+
+    result = _post_resume_with_mocked_pipeline(
+        client,
+        store_result=StoredGCSObject(
+            bucket="ats-resumes-test",
+            key=object_key,
+            etag="etag-123"
+        ),
+        index_error=ResumeIndexingError(
+            "embedding unavailable"
+        )
+    )
+
+    assert result["response"].status_code == 503
+    assert result["response"].json() == {
+        "detail": (
+            "Resume indexing service is unavailable"
+        )
+    }
+    mock_db.rollback.assert_called_once()
+    mock_db.commit.assert_not_called()
+    result["delete"].assert_called_once_with(
+        object_key
+    )

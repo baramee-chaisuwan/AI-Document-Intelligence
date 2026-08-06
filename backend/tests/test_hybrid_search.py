@@ -1,129 +1,112 @@
-from uuid import uuid4
+from unittest.mock import patch
 
-from app.vector.bm25_service import (
-    add_bm25_document,
-    delete_bm25_candidate
-)
 from app.vector.hybrid_search import (
+    RRF_K,
     hybrid_search
 )
-from app.vector.vector_service import (
-    add_document,
-    delete_candidate_documents
-)
 
 
-def test_hybrid_search_fastapi_docker():
+def test_hybrid_search_preserves_reciprocal_rank_fusion():
 
-    candidate_id = (
-        f"test_candidate_{uuid4().hex}"
-    )
+    vector_results = {
+        "documents": [[
+            "Vector-only chunk",
+            "Shared chunk"
+        ]],
+        "metadatas": [[
+            {
+                "document_id": "1_0",
+                "candidate_id": "1"
+            },
+            {
+                "document_id": "2_0",
+                "candidate_id": "2"
+            }
+        ]],
+        "distances": [[
+            0.05,
+            0.10
+        ]]
+    }
+    bm25_results = {
+        "documents": [
+            "Shared chunk",
+            "BM25-only chunk"
+        ],
+        "metadatas": [
+            {
+                "document_id": "2_0",
+                "candidate_id": "2"
+            },
+            {
+                "document_id": "3_0",
+                "candidate_id": "3"
+            }
+        ],
+        "scores": [
+            4.2,
+            2.1
+        ]
+    }
 
-    document_id = (
-        f"{candidate_id}_0"
-    )
-
-    resume_text = """
-    Baramee Chaisuwan
-
-    AI Engineer
-
-    Skills:
-    Python
-    FastAPI
-    Docker
-    Machine Learning
-    LLM
-    RAG
-    """
-
-    try:
-
-        add_document(
-            document_id=document_id,
-            candidate_id=candidate_id,
-            text=resume_text
-        )
-
-        add_bm25_document(
-            document_id=document_id,
-            candidate_id=candidate_id,
-            text=resume_text
-        )
-
+    with patch(
+        "app.vector.hybrid_search.search_documents",
+        return_value=vector_results
+    ), patch(
+        "app.vector.hybrid_search.search_bm25",
+        return_value=bm25_results
+    ):
 
         result = hybrid_search(
-            query="FastAPI Docker AI Engineer",
-            n_results=10
+            "FastAPI engineer",
+            n_results=3
         )
 
+    assert result["documents"][0][0] == "Shared chunk"
+    assert result["metadatas"][0][0] == {
+        "document_id": "2_0",
+        "candidate_id": "2",
+        "retrieval_sources": [
+            "vector",
+            "bm25"
+        ],
+        "vector_rank": 2,
+        "bm25_rank": 1
+    }
+    expected_score = (
+        1 / (RRF_K + 2)
+        + 1 / (RRF_K + 1)
+    )
+    assert result["scores"][0][0] == expected_score
 
-        assert "documents" in result
-        assert "metadatas" in result
-        assert "scores" in result
 
+def test_hybrid_search_keeps_existing_result_shape():
 
-        documents = result["documents"][0]
-        metadatas = result["metadatas"][0]
-        scores = result["scores"][0]
+    empty_vector = {
+        "documents": [[]],
+        "metadatas": [[]],
+        "distances": [[]]
+    }
+    empty_bm25 = {
+        "documents": [],
+        "metadatas": [],
+        "scores": []
+    }
 
+    with patch(
+        "app.vector.hybrid_search.search_documents",
+        return_value=empty_vector
+    ), patch(
+        "app.vector.hybrid_search.search_bm25",
+        return_value=empty_bm25
+    ):
 
-        assert len(documents) > 0
-
-        assert len(documents) == len(
-            metadatas
+        result = hybrid_search(
+            "no matches"
         )
 
-        assert len(documents) == len(
-            scores
-        )
-
-
-        matched_results = [
-            (
-                document,
-                metadata,
-                score
-            )
-            for (
-                document,
-                metadata,
-                score
-            ) in zip(
-                documents,
-                metadatas,
-                scores
-            )
-            if (
-                metadata.get("candidate_id")
-                == candidate_id
-            )
-        ]
-
-
-        assert matched_results
-
-
-        matched_document = (
-            matched_results[0][0]
-        )
-
-        matched_score = (
-            matched_results[0][2]
-        )
-
-
-        assert "FastAPI" in matched_document
-        assert "Docker" in matched_document
-
-        assert 0 <= matched_score <= 1
-
-    finally:
-
-        delete_candidate_documents(
-            candidate_id
-        )
-
-        delete_bm25_candidate(
-            candidate_id
-        )
+    assert result == {
+        "documents": [[]],
+        "metadatas": [[]],
+        "scores": [[]]
+    }

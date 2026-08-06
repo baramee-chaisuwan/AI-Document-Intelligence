@@ -7,10 +7,8 @@ from app.core.exceptions import NotFoundError
 from app.models.candidate_update_model import CandidateUpdate
 from app.repositories import candidate_repository
 
-from app.vector.vector_service import delete_candidate_documents
-from app.vector.bm25_service import delete_bm25_candidate
-from app.services.s3_storage_service import (
-    S3StorageError,
+from app.services.gcs_storage_service import (
+    GCSStorageError,
     delete_object
 )
 
@@ -55,8 +53,8 @@ def delete_candidate(db: Session, candidate_id: int):
     if not candidate:
         raise NotFoundError("Candidate not found")
 
-    resume_s3_key = candidate.resume_s3_key
-    s3_resume_deleted = False
+    resume_storage_key = candidate.resume_storage_key
+    stored_resume_deleted = False
 
     try:
 
@@ -65,17 +63,17 @@ def delete_candidate(db: Session, candidate_id: int):
             candidate
         )
 
-        if resume_s3_key:
+        if resume_storage_key:
 
             delete_object(
-                resume_s3_key
+                resume_storage_key
             )
 
-            s3_resume_deleted = True
+            stored_resume_deleted = True
 
         db.commit()
 
-    except S3StorageError:
+    except GCSStorageError:
 
         _rollback_preserving_error(
             db,
@@ -91,24 +89,16 @@ def delete_candidate(db: Session, candidate_id: int):
             candidate_id
         )
 
-        if s3_resume_deleted:
+        if stored_resume_deleted:
 
             logger.error(
-                "Candidate deletion failed after S3 resume "
+                "Candidate deletion failed after stored resume "
                 "deletion; reconciliation is required: "
                 "candidate_id=%s",
                 candidate_id
             )
 
         raise
-
-    delete_candidate_documents(
-        str(candidate_id)
-    )
-
-    delete_bm25_candidate(
-        str(candidate_id)
-    )
 
     return {
         "deleted": True

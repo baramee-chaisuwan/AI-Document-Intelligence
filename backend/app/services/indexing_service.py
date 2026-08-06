@@ -1,93 +1,188 @@
 import logging
 
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.database.models import ResumeChunk
+from app.rag.embedding_service import (
+    create_embeddings,
+    normalize_embedding
+)
 from app.rag.text_splitter import split_resume
+from app.repositories import resume_chunk_repository
 
-from app.vector.vector_service import (
-    add_document,
-    delete_candidate_documents
-)
-
-from app.vector.bm25_service import (
-    add_bm25_document,
-    delete_bm25_candidate
-)
 
 logger = logging.getLogger(__name__)
 
-def cleanup_candidate_index(
-    document_id
-):
 
-    cleanup_errors = []
+class ResumeIndexingError(RuntimeError):
+    """Raised when resume chunks or embeddings cannot be prepared."""
 
-    try:
-
-        delete_candidate_documents(
-            document_id
-        )
-
-    except Exception as error:
-
-        cleanup_errors.append(
-            f"ChromaDB cleanup failed: {error}"
-        )
-
-    try:
-
-        delete_bm25_candidate(
-            document_id
-        )
-
-    except Exception as error:
-
-        cleanup_errors.append(
-            f"BM25 cleanup failed: {error}"
-        )
-
-    if cleanup_errors:
-
-        logger.error(
-            "Index cleanup failed for candidate_id=%s: %s",
-            document_id,
-            " | ".join(cleanup_errors)
-        )
-
-        return False
-
-    return True
 
 def index_resume(
-    document_id: str,
-    resume_text: str,
+    db: Session,
+    document_id: str | int,
+    resume_text: str
 ):
 
-    document_id = str(
-        document_id or ""
-    ).strip()
+    candidate_id = _validate_candidate_id(
+        document_id
+    )
+    chunks = _prepare_chunks(
+        resume_text
+    )
 
-    if not document_id:
+    logger.info(
+        "Starting durable resume indexing: "
+        "candidate_id=%s, chunks=%s",
+        candidate_id,
+        len(chunks)
+    )
 
-        raise ValueError(
-            "Document ID is required"
+    try:
+
+        raw_embeddings = create_embeddings(
+            chunks
+        )
+        embeddings = _prepare_embeddings(
+            raw_embeddings,
+            len(chunks)
         )
 
-    if not resume_text or not resume_text.strip():
+    except ResumeIndexingError:
 
-        raise ValueError(
+        raise
+
+    except Exception as error:
+
+        logger.exception(
+            "Resume embeddings could not be prepared: "
+            "candidate_id=%s",
+            candidate_id
+        )
+
+        raise ResumeIndexingError(
+            "Resume embeddings could not be prepared"
+        ) from error
+
+    chunk_models = [
+        ResumeChunk(
+            candidate_id=candidate_id,
+            document_id=(
+                f"{candidate_id}_{chunk_index}"
+            ),
+            chunk_index=chunk_index,
+            chunk_text=chunk,
+            embedding=embedding
+        )
+        for chunk_index, (
+            chunk,
+            embedding
+        ) in enumerate(
+            zip(
+                chunks,
+                embeddings
+            )
+        )
+    ]
+
+    try:
+
+        resume_chunk_repository.replace_candidate_chunks(
+            db,
+            candidate_id,
+            chunk_models
+        )
+
+    except SQLAlchemyError:
+
+        raise
+
+    except Exception as error:
+
+        logger.exception(
+            "Durable resume chunks could not be prepared: "
+            "candidate_id=%s",
+            candidate_id
+        )
+
+        raise ResumeIndexingError(
+            "Durable resume chunks could not be prepared"
+        ) from error
+
+    logger.info(
+        "Durable resume indexing prepared: "
+        "candidate_id=%s, chunks=%s",
+        candidate_id,
+        len(chunk_models)
+    )
+
+    return {
+        "candidate_id": str(candidate_id),
+        "chunk_count": len(chunk_models),
+        "status": "indexed"
+    }
+
+
+def _validate_candidate_id(
+    value
+) -> int:
+
+    if isinstance(value, bool):
+
+        raise ResumeIndexingError(
+            "Document ID must be a positive integer"
+        )
+
+    try:
+
+        candidate_id = int(
+            str(value).strip()
+        )
+
+    except (TypeError, ValueError) as error:
+
+        raise ResumeIndexingError(
+            "Document ID must be a positive integer"
+        ) from error
+
+    if candidate_id <= 0:
+
+        raise ResumeIndexingError(
+            "Document ID must be a positive integer"
+        )
+
+    return candidate_id
+
+
+def _prepare_chunks(
+    resume_text
+) -> list[str]:
+
+    if (
+        not isinstance(resume_text, str)
+        or not resume_text.strip()
+    ):
+
+        raise ResumeIndexingError(
             "Resume text is required for indexing"
         )
 
-    chunks = split_resume(
-        resume_text.strip()
-    )
+    try:
 
+        chunks = split_resume(
+            resume_text.strip()
+        )
 
-    if not isinstance(
-        chunks,
-        list
-    ):
+    except Exception as error:
 
-        raise ValueError(
+        raise ResumeIndexingError(
+            "Resume text could not be split"
+        ) from error
+
+    if not isinstance(chunks, list):
+
+        raise ResumeIndexingError(
             "Resume splitter returned an invalid result"
         )
 
@@ -100,75 +195,46 @@ def index_resume(
 
     if not chunks:
 
-        raise ValueError(
+        raise ResumeIndexingError(
             "Resume did not produce any indexable chunks"
         )
 
-    logger.info(
-        "Starting resume indexing: candidate_id=%s, chunks=%s",
-        document_id,
-        len(chunks)
-    )
+    return chunks
 
-    cleanup_success = (
-        cleanup_candidate_index(
-            document_id
-        )
-    )
 
-    if not cleanup_success:
+def _prepare_embeddings(
+    raw_embeddings,
+    expected_count: int
+) -> list[list[float]]:
 
-        raise RuntimeError(
-            "Existing candidate index could not be cleared"
+    try:
+
+        values = raw_embeddings.tolist()
+
+    except AttributeError:
+
+        values = raw_embeddings
+
+    if (
+        not isinstance(values, list)
+        or len(values) != expected_count
+    ):
+
+        raise ResumeIndexingError(
+            "Embedding count does not match chunk count"
         )
 
     try:
 
-        for index, chunk in enumerate(
-            chunks
-        ):
-
-            chunk_id = (
-                f"{document_id}_{index}"
+        return [
+            normalize_embedding(
+                embedding
             )
+            for embedding in values
+        ]
 
+    except ValueError as error:
 
-            add_document(
-                document_id=chunk_id,
-                candidate_id=document_id,
-                text=chunk
-            )
-
-
-            add_bm25_document(
-                document_id=chunk_id,
-                candidate_id=document_id,
-                text=chunk
-            )
-
-    except Exception as error:
-
-        logger.exception(
-            "Resume indexing failed: candidate_id=%s",
-            document_id
-        )
-
-        cleanup_candidate_index(
-            document_id
-        )
-
-        raise RuntimeError(
-            "Resume indexing failed and partial index cleanup was attempted"
+        raise ResumeIndexingError(
+            "Resume embedding is invalid"
         ) from error
-
-    logger.info(
-        "Resume indexing completed: candidate_id=%s, chunks=%s",
-        document_id,
-        len(chunks)
-    )
-
-    return {
-        "candidate_id": document_id,
-        "chunk_count": len(chunks),
-        "status": "indexed"
-    }

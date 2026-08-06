@@ -21,8 +21,11 @@ from app.models.resume_model import (
 
 from app.database.database import get_db
 from app.database.models import Candidate
-from app.services.s3_storage_service import (
-    S3StorageError
+from app.services.gcs_storage_service import (
+    GCSStorageError
+)
+from app.services.indexing_service import (
+    ResumeIndexingError
 )
 
 
@@ -76,6 +79,7 @@ def analyze_resume(data):
     return service(data)
 
 def index_resume(
+    db: Session,
     document_id: str,
     resume_text: str
 ):
@@ -85,8 +89,9 @@ def index_resume(
     )
 
     return service(
-        document_id,
-        resume_text
+        db=db,
+        document_id=document_id,
+        resume_text=resume_text
     )
 
 def store_resume(
@@ -95,7 +100,7 @@ def store_resume(
     content
 ):
 
-    from app.services.s3_storage_service import (
+    from app.services.gcs_storage_service import (
         put_object
     )
 
@@ -109,7 +114,7 @@ def delete_stored_resume(
     object_key
 ):
 
-    from app.services.s3_storage_service import (
+    from app.services.gcs_storage_service import (
         delete_object
     )
 
@@ -517,16 +522,26 @@ def upload_document(
                 content=file_bytes
             )
 
-            candidate.resume_s3_key = (
+            candidate.resume_storage_key = (
                 stored_resume.key
             )
             candidate.resume_filename = (
                 filename
             )
 
+            index_resume(
+                db=db,
+                document_id=str(
+                    candidate.id
+                ),
+                resume_text=(
+                    extracted_text
+                )
+            )
+
             db.commit()
 
-        except S3StorageError as error:
+        except GCSStorageError as error:
 
             db.rollback()
 
@@ -538,26 +553,31 @@ def upload_document(
                 )
             ) from error
 
+        except ResumeIndexingError as error:
+
+            db.rollback()
+
+            _compensate_resume_upload(
+                stored_resume,
+                candidate.id
+            )
+
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Resume indexing "
+                    "service is unavailable"
+                )
+            ) from error
+
         except SQLAlchemyError as error:
 
             db.rollback()
 
-            if stored_resume is not None:
-
-                try:
-
-                    delete_stored_resume(
-                        stored_resume.key
-                    )
-
-                except S3StorageError:
-
-                    logger.exception(
-                        "S3 compensation failed after "
-                        "candidate persistence failure: "
-                        "candidate_id=%s",
-                        candidate.id
-                    )
+            _compensate_resume_upload(
+                stored_resume,
+                candidate.id
+            )
 
             raise HTTPException(
                 status_code=500,
@@ -566,28 +586,6 @@ def upload_document(
                     "not be saved"
                 )
             ) from error
-
-        try:
-
-            index_resume(
-                document_id=str(
-                    candidate.id
-                ),
-                resume_text=(
-                    extracted_text
-                )
-            )
-
-        except Exception:
-
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Candidate was saved, "
-                    "but resume indexing failed. "
-                    f"Candidate ID: {candidate.id}"
-                )
-            )
 
         return ResumeResponse(
             candidate_id=candidate.id,
@@ -610,3 +608,28 @@ def upload_document(
         except Exception:
 
             pass
+
+
+def _compensate_resume_upload(
+    stored_resume,
+    candidate_id
+):
+
+    if stored_resume is None:
+
+        return
+
+    try:
+
+        delete_stored_resume(
+            stored_resume.key
+        )
+
+    except GCSStorageError:
+
+        logger.exception(
+            "GCS compensation failed after "
+            "candidate persistence or indexing failure: "
+            "candidate_id=%s",
+            candidate_id
+        )

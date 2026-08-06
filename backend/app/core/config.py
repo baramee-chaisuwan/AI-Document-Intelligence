@@ -75,11 +75,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
     )
 )
 
-S3_BUCKET_NAME = os.getenv(
-    "S3_BUCKET_NAME"
+GCS_BUCKET_NAME = os.getenv(
+    "GCS_BUCKET_NAME"
 )
 
-S3_KEY_PREFIX = os.getenv(
-    "S3_KEY_PREFIX",
+GCS_KEY_PREFIX = os.getenv(
+    "GCS_KEY_PREFIX",
     "resumes"
 )

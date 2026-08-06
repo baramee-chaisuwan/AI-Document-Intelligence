@@ -17,7 +17,7 @@ from app.database.database import (
     get_db
 )
 from app.database.models import User
-from app.services.s3_storage_service import StoredS3Object
+from app.services.gcs_storage_service import StoredGCSObject
 from main import app
 
 
@@ -392,7 +392,7 @@ def test_recruiter_can_access_staff_endpoints(
         "app.api.upload.index_resume"
     ), patch(
         "app.api.upload.store_resume",
-        return_value=StoredS3Object(
+        return_value=StoredGCSObject(
             bucket="test-resume-bucket",
             key="resumes/test/recruiter-upload.pdf",
             etag="test-etag"

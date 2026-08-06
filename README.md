@@ -5,10 +5,10 @@ PDF resumes, extracting structured candidate information, scoring candidates,
 searching indexed resume evidence, and supporting recruiter workflows with
 Gemini-powered analysis, recommendations, and an HR assistant.
 
-The application combines a Next.js user interface, a FastAPI API, PostgreSQL,
-local ChromaDB and BM25 indexes, SentenceTransformer embeddings, and Google
-Gemini 2.5 Flash. Authentication and role-based access control are enforced by
-the backend and reflected in the frontend.
+The application combines a Next.js user interface, a FastAPI API, PostgreSQL
+with pgvector, SentenceTransformer embeddings, database-backed BM25 retrieval,
+and Google Gemini 2.5 Flash. Authentication and role-based access control are
+enforced by the backend and reflected in the frontend.
 
 ## Implemented features
 
@@ -21,8 +21,8 @@ the backend and reflected in the frontend.
 - Deterministic skill scoring with AI-assisted final scoring and fallback
 - Candidate list, detail, filtering, ranking, statistics, update, and deletion APIs
 - Dashboard totals, top candidates, recent candidates, score distribution, and level distribution
-- SentenceTransformer embeddings stored in persistent ChromaDB
-- JSON-backed BM25 index and reciprocal-rank-fusion hybrid retrieval
+- Durable resume chunks and SentenceTransformer embeddings stored in PostgreSQL/pgvector
+- PostgreSQL-backed BM25 reconstruction and reciprocal-rank-fusion hybrid retrieval
 - Semantic candidate search, RAG assistant, and structured candidate recommendation
 - UTF-8 CSV export with spreadsheet-formula sanitization
 - Next.js dashboard, analytics, candidate, upload, search, assistant, recommendation, and export pages
@@ -44,7 +44,7 @@ FastAPI
        |             +-> Gemini 2.5 Flash
        |             +-> PyMuPDF
        |             +-> SentenceTransformer
-       |             +-> ChromaDB + BM25 JSON -> hybrid RAG
+       |             +-> PostgreSQL/pgvector + BM25 -> hybrid RAG
        +-> Pydantic request/response validation
 ```
 
@@ -67,7 +67,7 @@ Key routes:
 | `/candidates` | Candidate list and admin-only delete control |
 | `/candidates/{id}` | Candidate profile, scores, and score breakdown |
 | `/upload` | PDF resume ingestion |
-| `/search` | ChromaDB semantic candidate search |
+| `/search` | PostgreSQL/pgvector semantic candidate search |
 | `/assistant` | RAG assistant over indexed resume evidence |
 | `/recommend` | Structured candidate recommendation for a job requirement |
 | `/export` | Admin-only CSV export UI |
@@ -81,22 +81,22 @@ The backend is a synchronous FastAPI application organized into:
 
 - `backend/app/api`: HTTP routes, dependencies, validation, and response mapping
 - `backend/app/services`: authentication, candidate, PDF, Gemini, scoring, indexing, search, and RAG orchestration
-- `backend/app/repositories`: SQLAlchemy data access for users and candidates
+- `backend/app/repositories`: SQLAlchemy data access for users, candidates, and resume chunks
 - `backend/app/database`: engine, sessions, and ORM models
 - `backend/app/models`: Pydantic request and response models
 - `backend/app/rag`: prompts, text splitting, model chains, retrieval context, and evaluation helpers
-- `backend/app/vector`: ChromaDB, BM25 persistence, vector operations, and hybrid search
+- `backend/app/vector`: pgvector retrieval, database-backed BM25, and hybrid search
 - `backend/alembic`: PostgreSQL schema migrations
 - `backend/scripts`: administrative CLI tools
 - `backend/tests`: pytest suite
 
 ### Data stores and external services
 
-- **PostgreSQL** stores users and candidate records.
-- **ChromaDB** stores resume chunks and normalized embedding vectors at
-  `backend/chroma_db`.
-- **BM25 storage** persists documents and metadata at
-  `backend/data/bm25_data.json` using a temporary file and atomic replacement.
+- **PostgreSQL with pgvector** stores users, candidates, ordered resume chunks,
+  and 384-dimensional normalized embeddings. It is the durable RAG source of
+  truth shared by all application instances.
+- **BM25 retrieval** reconstructs a `rank_bm25` corpus from current PostgreSQL
+  chunk rows for each search. No local index file is required for correctness.
 - **Google Gemini 2.5 Flash** performs resume extraction, summarization, AI
   assessment, assistant generation, and structured recommendations.
 - **SentenceTransformer** uses `paraphrase-MiniLM-L3-v2` by default. The model
@@ -186,18 +186,19 @@ in the frontend.
 
    If AI assessment fails, `ai_status` is `fallback`, `ai_score` is `0`, and
    `skill_score` uses the rule score.
-7. The candidate is committed to PostgreSQL.
-8. Resume text is split with a recursive character splitter, embedded, and
-   written to ChromaDB and the BM25 JSON store.
-
-The upload API reports a `503` containing the saved candidate ID if PostgreSQL
-succeeds but indexing fails. Indexing attempts to clean partial ChromaDB and
-BM25 data before returning the failure.
+7. The Candidate is flushed to obtain its ID and the PDF is uploaded privately
+   to Google Cloud Storage.
+8. Resume text is split with the existing recursive character splitter. Its
+   normalized 384-dimensional embeddings and ordered chunks are added to the
+   same PostgreSQL transaction.
+9. Candidate metadata and durable RAG chunks are committed together only after
+   storage and indexing succeed. On indexing or database failure the database
+   is rolled back and compensating GCS deletion is attempted.
 
 ### Retrieval behavior
 
-- `POST /search/` performs ChromaDB vector similarity search, removes duplicate
-  candidate IDs, and joins current candidate details from PostgreSQL.
+- `POST /search/` performs pgvector cosine-distance search in PostgreSQL,
+  removes duplicate candidate IDs, and joins current candidate details.
 - The assistant and recommendation paths use hybrid retrieval. Vector and BM25
   rankings are fused with equal-weight reciprocal rank fusion (`RRF_K = 60`).
 - The assistant builds bounded context from retrieved chunks and returns a
@@ -246,7 +247,7 @@ AI-Document-Intelligence/
 |   |   |-- repositories/     # Database access
 |   |   |-- services/         # Business, AI, scoring, and indexing logic
 |   |   |-- rag/              # Prompts, chains, chunking, evaluation
-|   |   `-- vector/           # ChromaDB, BM25, hybrid retrieval
+|   |   `-- vector/           # pgvector, BM25, hybrid retrieval
 |   |-- alembic/              # Database migrations
 |   |-- scripts/create_admin.py
 |   |-- tests/
@@ -424,11 +425,11 @@ npm run start
 
 | Service | Container | Published port | Storage |
 | --- | --- | --- | --- |
-| `api` | `resume_api` | `8000:8000` | `./backend:/app` and `./backend/chroma_db:/app/chroma_db` |
-| `db` | `resume_db` | `5433:5432` | Named volume `pgdata` |
+| `api` | `resume_api` | `8000:8080` | `./backend:/app` |
+| `db` | `resume_db` | `5433:5432` | pgvector/PostgreSQL data in `pgdata` |
 
 The API image uses Python 3.13, installs `backend/requirements.txt`, and runs
-Uvicorn on `0.0.0.0:${PORT:-8000}`. Compose loads the root `.env` for the API
+Uvicorn on `0.0.0.0:${PORT:-8080}`. Compose loads the root `.env` for the API
 and overrides `DATABASE_URL` with the internal
 `postgresql://postgres:postgres@db:5432/resume_db` address.
 
@@ -446,9 +447,9 @@ docker compose logs -f api
 ```
 
 The Compose file does not define a frontend service. Run the frontend locally
-against `http://localhost:8000` or deploy it separately. Because the backend
-directory is bind-mounted, ChromaDB and `backend/data/bm25_data.json` persist on
-the host; PostgreSQL persists in `pgdata`.
+against `http://localhost:8000` or deploy it separately. Candidate and RAG data
+persist together in PostgreSQL's `pgdata` volume; no local vector/BM25 index
+volume is required.
 
 ## Create the first administrator
 
@@ -510,19 +511,18 @@ npx tsc --noEmit --incremental false
 npm run build
 ```
 
-The GitHub Actions workflow currently installs backend dependencies, starts
-PostgreSQL 16, applies Alembic migrations, and runs pytest. It does not run the
-frontend checks.
+The GitHub Actions workflow currently installs backend dependencies, starts a
+pgvector-enabled PostgreSQL 16 service, applies Alembic migrations, and runs
+pytest. It does not run the frontend checks.
 
 ## Operational notes
 
 - Resume upload, Gemini calls, database writes, and indexing execute in the
   request path; there is no background worker or queue.
-- PostgreSQL is committed before resume indexing. An indexing failure therefore
-  leaves the candidate row saved and returns its ID in the error response.
-- ChromaDB and BM25 are local persistent stores. Multi-replica deployments need
-  a shared-storage and concurrency design beyond the included single-container
-  Compose setup.
+- Candidate metadata and durable resume chunks share one PostgreSQL transaction;
+  indexing failure rolls back both and triggers GCS compensation.
+- Vector retrieval and BM25 reconstruction use PostgreSQL as their shared source
+  of truth, so Cloud Run instance restarts do not lose RAG data.
 - Access tokens are not refreshable and are stored in browser
   `sessionStorage`.
 - Development startup calls `Base.metadata.create_all`, but Alembic migrations

@@ -10,7 +10,7 @@ services:
     container_name: resume_api
 
     ports:
-      - "8000:8000"
+      - "8000:8080"
 
     env_file:
       - .env
@@ -23,10 +23,9 @@ services:
 
     volumes:
       - ./backend:/app
-      - ./backend/chroma_db:/app/chroma_db
 
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
 
     container_name: resume_db
 

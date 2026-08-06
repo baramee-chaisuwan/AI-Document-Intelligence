@@ -27,17 +27,18 @@ SentenceTransformer
 
 Model:
 
-- all-MiniLM-L6-v2
+- paraphrase-MiniLM-L3-v2 (384 dimensions)
 
 ---
 
 ## Vector Database
 
-ChromaDB
+PostgreSQL with pgvector
 
 Similarity Search: 
 
-- Embedding-based semantic search using ChromaDB
+- Cosine-distance semantic search using pgvector
+- Equal-weight reciprocal-rank fusion with database-backed BM25
 
 ---
 
@@ -65,7 +66,11 @@ The evaluation dataset contains queries related to candidate skills and experien
 
 ---
 
-## Results
+## Historical Results
+
+The results below were recorded before the PostgreSQL/pgvector persistence
+migration. Re-run the evaluation dataset before treating them as current
+quality measurements.
 
 | Metric | Score |
 |---|---:|
@@ -118,7 +123,6 @@ This highlights a limitation of general-purpose embedding models when handling d
 
 Potential improvements for retrieval quality:
 
-- Hybrid Search (BM25 + Vector Search)
 - Cross Encoder Re-ranking
 - Query Expansion
 - Domain-specific Embedding Models
