@@ -23,7 +23,7 @@ concurrency:
 jobs:
   test:
     name: Backend Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -92,10 +92,11 @@ jobs:
         run: |
           python -m pytest -q
 
+
   deploy:
     name: Deploy Backend to Cloud Run
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     if: >-
       github.event_name == 'push' &&
@@ -159,7 +160,6 @@ jobs:
             --format='value(status.url)')"
 
           echo "SERVICE_URL=${SERVICE_URL}" >> "$GITHUB_ENV"
-          echo "Cloud Run service: ${SERVICE_URL}"
 
       - name: Verify Health Endpoint
         run: |
