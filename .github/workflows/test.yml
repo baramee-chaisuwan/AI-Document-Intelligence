@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-24.04
 
     if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
 
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -160,6 +160,8 @@ jobs:
             --format='value(status.url)')"
 
           echo "SERVICE_URL=${SERVICE_URL}" >> "$GITHUB_ENV"
+
+          echo "Cloud Run service: ${SERVICE_URL}"
 
       - name: Verify Health Endpoint
         run: |
