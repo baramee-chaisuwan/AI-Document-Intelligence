@@ -1,532 +1,626 @@
-# AI Document Intelligence ATS
+# AI Document Intelligence — ATS Resume Intelligence Platform
 
-AI Document Intelligence is a full-stack applicant tracking system for ingesting
-PDF resumes, extracting structured candidate information, scoring candidates,
-searching indexed resume evidence, and supporting recruiter workflows with
-Gemini-powered analysis, recommendations, and an HR assistant.
+An AI-powered Applicant Tracking System that ingests PDF resumes, extracts structured
+candidate data with an LLM, scores candidates against job criteria, and answers
+recruiter questions through a retrieval-augmented HR assistant.
 
-The application combines a Next.js user interface, a FastAPI API, PostgreSQL
-with pgvector, SentenceTransformer embeddings, database-backed BM25 retrieval,
-and Google Gemini 2.5 Flash. Authentication and role-based access control are
-enforced by the backend and reflected in the frontend.
+The system combines a FastAPI backend, a Next.js frontend, PostgreSQL with pgvector,
+and Google Gemini 2.5 Flash to turn unstructured resumes into searchable, scored,
+queryable candidate data — with hybrid (vector + keyword) retrieval powering both
+semantic search and the RAG assistant.
 
-## Implemented features
+## Links
 
-- Recruiter self-registration, login, logout, and current-user loading
-- bcrypt password hashing and expiring HS256 JWT access tokens
-- Backend RBAC for `admin` and `recruiter` users
-- Interactive CLI for creating administrator accounts
-- PDF validation and text extraction with PyMuPDF
-- Gemini-based resume parsing, summarization, and AI assessment
-- Deterministic skill scoring with AI-assisted final scoring and fallback
-- Candidate list, detail, filtering, ranking, statistics, update, and deletion APIs
-- Dashboard totals, top candidates, recent candidates, score distribution, and level distribution
-- Durable resume chunks and SentenceTransformer embeddings stored in PostgreSQL/pgvector
-- PostgreSQL-backed BM25 reconstruction and reciprocal-rank-fusion hybrid retrieval
-- Semantic candidate search, RAG assistant, and structured candidate recommendation
-- UTF-8 CSV export with spreadsheet-formula sanitization
-- Next.js dashboard, analytics, candidate, upload, search, assistant, recommendation, and export pages
-- Automated backend tests for authentication, RBAC, CRUD, upload, scoring, search, RAG, dashboard, export, and the admin CLI
+- **Live demo**: https://ai-document-intelligence-9ut04o1zh-ats-resume-intelligence.vercel.app
+- **API documentation (Swagger UI)**: https://ats-api-355421066989.asia-southeast1.run.app/docs
+- **Repository**: https://github.com/baramee-chaisuwan/AI-Document-Intelligence
+
+## Tech stack
+
+**Backend**
+- FastAPI
+- SQLAlchemy
+- PostgreSQL 16
+- pgvector
+- Alembic
+
+**AI**
+- Google Gemini 2.5 Flash
+- SentenceTransformer
+- RAG (Retrieval-Augmented Generation)
+- Hybrid Search (Vector + BM25)
+
+**Frontend**
+- Next.js 16
+- React 19
+- TypeScript
+
+**Infrastructure**
+- Docker
+- Google Cloud Run
+- Cloud SQL PostgreSQL + pgvector
+- Google Cloud Storage (GCS)
+- Artifact Registry
+- Vercel
+- GitHub Actions
+
+## Project overview
+
+Recruiters spend a disproportionate amount of time manually reading resumes,
+re-typing candidate details into spreadsheets, and re-reading the same PDFs to
+answer a hiring manager's question. Most of that work is pattern extraction and
+retrieval — exactly what LLMs, embeddings, and retrieval-augmented generation
+are good at.
+
+This project demonstrates a production-oriented AI recruitment workflow by combining structured extraction,
+hybrid retrieval, and grounded generation, 
+and every recommendation is validated against the actual
+candidates retrieved before being returned.
+
+- **Problem it solves**: unstructured resume PDFs are slow to search, hard to
+  compare consistently, and expensive to re-read every time a new question
+  comes up.
+- **Why it was built**: as a hands-on exploration of production RAG
+  architecture — structured extraction, hybrid retrieval, and grounded
+  generation — applied to a domain (recruiting) where hallucination has real
+  consequences.
+- **Who it's for**: recruiters and hiring teams who need to triage, search,
+  and compare candidates quickly; and, as a portfolio piece, engineers and
+  technical recruiters evaluating applied AI engineering skill.
+- **Value it provides**: minutes instead of hours to go from a stack of PDF
+  resumes to a searchable, scored, queryable candidate pool — with answers
+  that cite real resume content instead of plausible-sounding guesses.
+
+## My role
+
+Designed and implemented the full AI application stack, end to end:
+
+- Backend API architecture (FastAPI, service/repository layering)
+- LLM integration (Gemini structured extraction, scoring, RAG generation)
+- RAG pipeline (chunking, embedding, retrieval, grounded generation)
+- Hybrid retrieval system (pgvector + BM25, Reciprocal Rank Fusion)
+- Database schema design (PostgreSQL + pgvector, Alembic migrations)
+- Cloud deployment (Cloud Run, Cloud SQL, Cloud Storage)
+- CI/CD pipeline (GitHub Actions)
+- Frontend integration (Next.js consumption of the backend API)
+
+## Application preview
+
+### Dashboard
+![Dashboard](assets/screenshots/frontend-dashboard.png)
+
+### Resume analysis
+![Resume analysis](assets/screenshots/frontend-candidates.png)
+
+### AI assistant
+![AI assistant](assets/screenshots/frontend-assistant.png)
+
+### Candidate recommendation
+![Candidate recommendation](assets/screenshots/frontend-recommend.png)
+
+*Full screenshot set, including API responses, is in the [Screenshots](#screenshots) section below.*
+
+## Project highlights
+
+- **AI Resume Intelligence Pipeline** — PDF ingestion, text extraction,
+  Gemini-based structured extraction, deterministic + AI-assisted candidate
+  scoring, and embedding generation, all committed atomically so a candidate
+  is never left partially indexed.
+- **RAG HR Assistant** — a recruiter asks a natural-language question, the
+  system retrieves the most relevant resume evidence via hybrid search, and
+  Gemini generates an answer grounded in that retrieved evidence, with a
+  no-information fallback when nothing relevant is found.
+- **Candidate Recommendation** — given a job requirement, the system runs
+  hybrid retrieval across the candidate pool, ranks candidates, and returns a
+  structured, evidence-based recommendation — Gemini's suggested candidate is
+  rejected if it isn't actually part of the retrieved set.
+- **Hybrid retrieval architecture** — pgvector similarity search fused with
+  PostgreSQL-backed BM25 via Reciprocal Rank Fusion, so retrieval captures
+  both semantic meaning and exact keyword matches.
+- **JWT authentication with RBAC** — bcrypt password hashing and role-based
+  access control (`admin` / `recruiter`) enforced on the backend and mirrored
+  in the frontend.
+- **Cloud-native deployment** — Google Cloud Run, Cloud SQL (PostgreSQL +
+  pgvector), Cloud Storage, and Artifact Registry, deployed through an
+  automated GitHub Actions pipeline.
+- **Automated testing** — a backend test suite covering auth, RBAC, scoring,
+  hybrid retrieval, RAG, and export, run in CI against a real
+  pgvector-enabled PostgreSQL instance.
+- **Full-featured frontend** — Next.js dashboard, analytics, candidate
+  search, upload, AI assistant, recommendation, and admin-only export
+  workflows.
+
+## User workflow
+
+**Recruiter journey, end to end:**
+
+1. Recruiter uploads a resume PDF.
+2. Gemini extracts structured candidate information (skills, experience,
+   education, projects) from the raw text.
+3. The system evaluates skills with a rule-based score, refined by an
+   AI-assisted score.
+4. The resume is chunked, embedded, and indexed alongside the candidate
+   record — durably, in the same database transaction.
+5. Recruiter searches candidates semantically, or filters/ranks them by
+   score and level.
+6. Recruiter asks the AI assistant a free-form question ("who has production
+   Kubernetes experience?") and gets an answer grounded in retrieved resume
+   evidence.
+7. Recruiter (or the system, on request) generates a structured
+   recommendation for a specific job requirement, backed by the same
+   retrieval pipeline.
 
 ## Architecture
 
 ```text
-Browser
-  Next.js App Router + React + TypeScript
-  Auth context, route guard, Axios services, Tailwind CSS, Recharts
-                         |
-                         | HTTP/JSON + Bearer JWT
-                         v
-FastAPI
-  API routers -> services -> repositories
-       |             |             |
-       |             |             +-> SQLAlchemy -> PostgreSQL
-       |             +-> Gemini 2.5 Flash
-       |             +-> PyMuPDF
-       |             +-> SentenceTransformer
-       |             +-> PostgreSQL/pgvector + BM25 -> hybrid RAG
-       +-> Pydantic request/response validation
+                                Gemini 2.5 Flash API
+                                        ^
+                                        |
+User
+  |
+  v
+Next.js Frontend  (App Router, React, TypeScript) (Vercel)
+  |
+  | HTTP/JSON + Bearer JWT
+  v
+FastAPI Backend
+  |
+  v
+Service Layer        (business logic, AI orchestration, scoring, RAG)
+  |
+  v
+Repository Layer      (SQLAlchemy data access)
+  |
+  +------------------------+
+  |                        |
+  v                        v
+Google Cloud Storage    PostgreSQL + pgvector
+(private resume PDFs)   (candidates, users, resume chunks, embeddings)
 ```
+
+The service layer calls out to **Gemini 2.5 Flash** for extraction and
+generation, **PyMuPDF** for PDF text extraction, and **SentenceTransformer**
+(`paraphrase-MiniLM-L3-v2`) for embeddings. The repository layer then fans
+out to two durable stores: the original PDF goes to **Google Cloud Storage**,
+while structured candidate data, resume chunks, and embeddings go to
+**PostgreSQL + pgvector**. GCS and PostgreSQL are separate systems, so the
+two writes are not covered by a single distributed transaction; consistency
+between them is maintained through compensating actions rather than atomic
+commit (see the resume upload flow below).
+
+### Resume upload flow
+
+```text
+PDF upload
+  -> Validation (filename, signature, size)
+  -> Text extraction (PyMuPDF)
+  -> Gemini structured extraction (skills, experience, education, projects)
+  -> Rule-based + AI-assisted candidate scoring
+  -> Candidate row committed to PostgreSQL
+  -> PDF stored privately in Google Cloud Storage
+  -> Text chunking + embedding generation
+  -> Chunks and embeddings committed to PostgreSQL/pgvector
+```
+
+Candidate metadata and resume chunks are written in a single transaction. If
+embedding or indexing fails, the transaction is rolled back and the uploaded
+file is deleted from Cloud Storage as compensation — the system never leaves
+a candidate without a searchable index or an orphaned file behind.
+
+### RAG flow
+
+```text
+User query
+  -> Query embedding (SentenceTransformer)
+  -> Vector search (pgvector cosine distance)
+  -> BM25 keyword search (reconstructed from PostgreSQL)
+  -> Hybrid ranking (Reciprocal Rank Fusion, RRF_K = 60)
+  -> Bounded context assembly from top chunks
+  -> Gemini response generation (assistant answer or structured recommendation)
+```
+
+The assistant returns a no-information response when retrieval finds no
+relevant evidence, and structured recommendations are rejected unless the
+recommended candidate ID belongs to the retrieved candidate set — both are
+guardrails against the model hallucinating candidates that aren't backed by
+retrieved evidence.
+
+## Data model
+
+The schema centers on three tables:
+
+- **User** — an authenticated account (`admin` or `recruiter`), with a
+  bcrypt-hashed password and the role used for RBAC enforcement.
+- **Candidate** — a structured record produced from one uploaded resume:
+  parsed contact info, skills, experience, education, projects, the
+  rule-based and AI-assisted scores, and a reference to the stored PDF in
+  Google Cloud Storage.
+- **ResumeChunk** — one chunk of a candidate's resume text, together with
+  its embedding vector, used for hybrid (vector + BM25) retrieval.
+
+**Relationship**: a `Candidate` has many `ResumeChunk` rows (one-to-many,
+`ResumeChunk.candidate_id -> Candidate.id`), reflecting the fact that a
+resume is split into multiple chunks at indexing time. Deleting a candidate
+cascades to its chunks so retrieval never returns orphaned embeddings.
+`User` is not directly related to `Candidate` or `ResumeChunk` in the
+schema — recruiters and admins act on the shared candidate pool rather than
+owning individual candidates.
+
+## Backend architecture
+
+| Folder | Responsibility |
+| --- | --- |
+| `app/api/` | HTTP endpoints, request/response mapping, auth dependencies |
+| `app/services/` | Business logic and the AI processing pipeline (parsing, scoring, RAG orchestration) |
+| `app/repositories/` | Database access abstraction over SQLAlchemy |
+| `app/database/` | SQLAlchemy models, engine, and session management |
+| `app/models/` | Pydantic request/response schemas |
+| `app/rag/` | Prompting, text chunking, retrieval context assembly, evaluation helpers |
+| `app/vector/` | pgvector similarity search, BM25 reconstruction, hybrid ranking |
+| `alembic/` | PostgreSQL schema migrations |
+| `scripts/` | Administrative CLI tools (e.g. bootstrapping the first admin) |
+| `tests/` | Pytest suite |
 
 ### Frontend
 
-The frontend is a Next.js 16 App Router application using React 19 and
-TypeScript. Pages under `frontend/app` are composed from reusable components,
-while `frontend/services` contains the typed Axios calls to the backend.
-Authentication state is provided at the root layout by `AuthProvider` and
-`AuthGate`.
+Next.js 16 (App Router) with React 19 and TypeScript. Pages live in
+`frontend/app`, typed API calls in `frontend/services`, and auth state is
+provided at the root layout via `AuthProvider` / `AuthGate`. Key routes cover
+login/register, dashboard, candidate list/detail, upload, semantic search, the
+RAG assistant, recommendations, and admin-only CSV export.
 
-Key routes:
+## AI engineering
 
-| Route | Purpose |
-| --- | --- |
-| `/login` | Public login page |
-| `/register` | Public recruiter-registration page |
-| `/dashboard` | Candidate summary, charts, top candidates, and recent candidates |
-| `/analytics` | Analytics view backed by dashboard endpoints |
-| `/candidates` | Candidate list and admin-only delete control |
-| `/candidates/{id}` | Candidate profile, scores, and score breakdown |
-| `/upload` | PDF resume ingestion |
-| `/search` | PostgreSQL/pgvector semantic candidate search |
-| `/assistant` | RAG assistant over indexed resume evidence |
-| `/recommend` | Structured candidate recommendation for a job requirement |
-| `/export` | Admin-only CSV export UI |
+### LLM integration
 
-There is no separate backend `/analytics` route; the frontend analytics page
-uses the authenticated `/dashboard/*` endpoints.
+- Gemini 2.5 Flash extracts normalized candidate data (name, skills, languages,
+  education, experience, projects) as structured JSON from raw resume text.
+- Gemini generates a short candidate summary and an AI assessment score,
+  used alongside a deterministic rule-based score.
+- Structured output generation is used for candidate recommendation: Gemini
+  returns a typed Pydantic response, not free text, and the response is
+  validated against the actual retrieved candidate set before being trusted.
 
-### Backend
+### Retrieval-augmented generation
 
-The backend is a synchronous FastAPI application organized into:
+- **Embedding creation**: resume text is chunked with a recursive character
+  splitter and embedded with SentenceTransformer into normalized
+  384-dimensional vectors.
+- **Vector similarity search**: pgvector performs cosine-distance search
+  directly in PostgreSQL — no separate vector database to operate.
+- **BM25 keyword retrieval**: a `rank_bm25` corpus is reconstructed from
+  current PostgreSQL chunk rows on every query, so it's always consistent
+  with the live database — no stale on-disk index.
+- **Hybrid retrieval**: vector and BM25 rankings are fused with equal-weight
+  Reciprocal Rank Fusion (`RRF_K = 60`) before context is handed to Gemini.
 
-- `backend/app/api`: HTTP routes, dependencies, validation, and response mapping
-- `backend/app/services`: authentication, candidate, PDF, Gemini, scoring, indexing, search, and RAG orchestration
-- `backend/app/repositories`: SQLAlchemy data access for users, candidates, and resume chunks
-- `backend/app/database`: engine, sessions, and ORM models
-- `backend/app/models`: Pydantic request and response models
-- `backend/app/rag`: prompts, text splitting, model chains, retrieval context, and evaluation helpers
-- `backend/app/vector`: pgvector retrieval, database-backed BM25, and hybrid search
-- `backend/alembic`: PostgreSQL schema migrations
-- `backend/scripts`: administrative CLI tools
-- `backend/tests`: pytest suite
+### Data pipeline
 
-### Data stores and external services
-
-- **PostgreSQL with pgvector** stores users, candidates, ordered resume chunks,
-  and 384-dimensional normalized embeddings. It is the durable RAG source of
-  truth shared by all application instances.
-- **BM25 retrieval** reconstructs a `rank_bm25` corpus from current PostgreSQL
-  chunk rows for each search. No local index file is required for correctness.
-- **Google Gemini 2.5 Flash** performs resume extraction, summarization, AI
-  assessment, assistant generation, and structured recommendations.
-- **SentenceTransformer** uses `paraphrase-MiniLM-L3-v2` by default. The model
-  is loaded lazily and may be downloaded from Hugging Face on first use.
-
-## Authentication
-
-### Backend flow
-
-Passwords are hashed with bcrypt using 12 rounds. The backend implements signed
-HS256 JWT access tokens containing `sub`, `type`, `iat`, and `exp` claims. It
-does not currently issue refresh tokens or authentication cookies.
-
-| Endpoint | Access | Behavior |
-| --- | --- | --- |
-| `POST /auth/register` | Public | Validates email, full name, and password; creates an active recruiter |
-| `POST /auth/login` | Public | Verifies credentials and active status; returns `access_token`, `token_type`, and `expires_in` |
-| `GET /auth/me` | Authenticated | Resolves the Bearer token and returns the active user |
-
-Registration normalizes email to lowercase and trims the full name. Passwords
-must contain 8-72 characters and must not exceed 72 UTF-8 bytes. Duplicate
-email addresses return `409 Conflict`.
-
-Public registration always creates a user with role `recruiter`. The request
-does not accept a role, and there is no public administrator-registration
-endpoint.
-
-### Frontend flow
-
-The frontend stores the access token in tab-scoped `sessionStorage`. The shared
-Axios request interceptor adds `Authorization: Bearer <token>` to API requests.
-At startup, the auth context calls `GET /auth/me` to load the user.
-
-The Axios response interceptor handles any `401` by clearing the stored token
-and redirecting to `/login`. Logout performs the same local cleanup and uses a
-full redirect to `/login`.
-
-`/login` and `/register` are public. Every other frontend route requires an
-authenticated user. Authenticated users who open either public auth page are
-redirected to `/dashboard`. A successful registration redirects to `/login`
-with a one-time success message.
-
-Because `sessionStorage` is readable by browser JavaScript, production security
-depends on preventing XSS. Moving token delivery to backend-issued HttpOnly,
-Secure, SameSite cookies would require a backend authentication change.
-
-## Authorization and RBAC
-
-The database and Pydantic model define two roles: `admin` and `recruiter`.
-Backend authorization is enforced with FastAPI dependencies.
-
-| Access level | Backend routes |
-| --- | --- |
-| Public | `GET /health/`, `POST /auth/register`, `POST /auth/login` |
-| Authenticated admin or recruiter | `GET /auth/me`, `GET /candidates/`, `GET /candidates/{id}`, `GET /candidates/stats`, `GET /candidates/ranking`, all `GET /dashboard/*` routes |
-| Staff (`admin` or `recruiter`) | `GET /candidates/search`, `POST /upload/`, `POST /search/`, `POST /assistant/`, `POST /recommend/` |
-| Admin only | `PUT /candidates/{id}`, `DELETE /candidates/{id}`, `GET /export/csv` |
-
-Missing, malformed, expired, or otherwise invalid tokens return
-`401 Unauthorized` with `WWW-Authenticate: Bearer`. Tokens for missing or inactive
-users also return `401`. A valid authenticated user without the required role
-receives `403 Forbidden`; admin-only routes return `Admin access required`.
-
-The frontend mirrors these rules: the navbar displays the authenticated user's
-full name and role, recruiters do not see the Export navigation item or
-candidate Delete buttons, and recruiter navigation to `/export` redirects to
-`/dashboard`. The backend remains the authoritative security boundary. The
-admin-only candidate-update API currently has no corresponding update control
-in the frontend.
-
-## Resume and AI pipeline
-
-1. `POST /upload/` reads the uploaded file in memory and enforces a `.pdf`
-   filename, nonempty content, `%PDF-` signature, and configured size limit.
-2. PyMuPDF extracts text from every page. Image-only PDFs without extractable
-   text are rejected.
-3. Gemini extracts normalized name, skills, languages, education, experience,
-   and projects as JSON.
-4. The API checks for an existing candidate with the same extracted name.
-5. Gemini creates a short summary. The rule engine scores technical keywords,
-   experience, projects, and engineering signals; Gemini supplies an AI score.
-6. On successful AI analysis, the final score is:
-
-   ```text
-   skill_score = round(0.8 * rule_score + 0.2 * ai_score)
-   ```
-
-   If AI assessment fails, `ai_status` is `fallback`, `ai_score` is `0`, and
-   `skill_score` uses the rule score.
-7. The Candidate is flushed to obtain its ID and the PDF is uploaded privately
-   to Google Cloud Storage.
-8. Resume text is split with the existing recursive character splitter. Its
-   normalized 384-dimensional embeddings and ordered chunks are added to the
-   same PostgreSQL transaction.
-9. Candidate metadata and durable RAG chunks are committed together only after
-   storage and indexing succeed. On indexing or database failure the database
-   is rolled back and compensating GCS deletion is attempted.
-
-### Retrieval behavior
-
-- `POST /search/` performs pgvector cosine-distance search in PostgreSQL,
-  removes duplicate candidate IDs, and joins current candidate details.
-- The assistant and recommendation paths use hybrid retrieval. Vector and BM25
-  rankings are fused with equal-weight reciprocal rank fusion (`RRF_K = 60`).
-- The assistant builds bounded context from retrieved chunks and returns a
-  no-information response when no evidence is available.
-- Recommendation uses a structured Pydantic response and rejects a generated
-  candidate ID unless it belongs to the retrieved candidate set.
+- **PDF processing**: PyMuPDF extracts text per page; image-only PDFs with no
+  extractable text are rejected at upload time.
+- **Text chunking**: recursive character splitting with configurable chunk
+  size and overlap (`RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`).
+- **Embedding storage**: chunks and embeddings are persisted in PostgreSQL as
+  the single durable source of truth for retrieval — shared across all
+  application instances, so horizontal scaling and Cloud Run restarts don't
+  lose RAG data.
+- **Candidate knowledge retrieval**: the same indexed chunks back three
+  surfaces — semantic search, the RAG assistant, and structured
+  recommendation — rather than three separate pipelines.
 
 ## API summary
 
-The root API route redirects to FastAPI Swagger UI at `/docs`.
-
-| Method | Route | Purpose | Required access |
+| Method | Route | Purpose | Access |
 | --- | --- | --- | --- |
-| `GET` | `/health/` | Health response | Public |
-| `POST` | `/auth/register` | Create recruiter | Public |
-| `POST` | `/auth/login` | Issue access token | Public |
-| `GET` | `/auth/me` | Current user | Authenticated |
+| `GET` | `/health/` | Health check | Public |
+| `POST` | `/auth/register` | Create recruiter account | Public |
+| `POST` | `/auth/login` | Issue JWT access token | Public |
+| `GET` | `/auth/me` | Current authenticated user | Authenticated |
 | `GET` | `/candidates/` | Paginated candidate list | Authenticated |
-| `GET` | `/candidates/search` | Filter by name, level, or minimum AI score | Staff |
+| `GET` | `/candidates/search` | Filter by name, level, minimum AI score | Staff |
 | `GET` | `/candidates/stats` | Count and average AI score | Authenticated |
-| `GET` | `/candidates/ranking` | Candidate ranking ordered by AI score | Authenticated |
+| `GET` | `/candidates/ranking` | Candidates ranked by AI score | Authenticated |
 | `GET` | `/candidates/{id}` | Candidate detail | Authenticated |
-| `PUT` | `/candidates/{id}` | Update `candidate_level` and/or `skill_score` | Admin |
-| `DELETE` | `/candidates/{id}` | Delete candidate and associated indexes | Admin |
-| `POST` | `/upload/` | Process and index a PDF resume | Staff |
+| `PUT` | `/candidates/{id}` | Update candidate level / score | Admin |
+| `DELETE` | `/candidates/{id}` | Delete candidate and its indexes | Admin |
+| `POST` | `/upload/` | Ingest and index a PDF resume | Staff |
 | `POST` | `/search/` | Semantic candidate search | Staff |
 | `POST` | `/assistant/` | Ask the RAG assistant | Staff |
-| `POST` | `/recommend/` | Recommend a candidate | Staff |
-| `GET` | `/dashboard/summary` | Dashboard totals and top candidate | Authenticated |
-| `GET` | `/dashboard/top-candidates` | Highest AI scores | Authenticated |
-| `GET` | `/dashboard/score-distribution` | AI-score buckets | Authenticated |
-| `GET` | `/dashboard/level-distribution` | Counts by candidate level | Authenticated |
-| `GET` | `/dashboard/recent-candidates` | Most recently created candidates | Authenticated |
-| `GET` | `/export/csv` | Download timestamped UTF-8 CSV | Admin |
+| `POST` | `/recommend/` | Recommend a candidate for a job requirement | Staff |
+| `GET` | `/dashboard/*` | Summary, top candidates, score/level distribution, recent candidates | Authenticated |
+| `GET` | `/export/csv` | Download timestamped candidate CSV | Admin |
 
-## Repository structure
+*Staff = `admin` or `recruiter`.* Full request/response contracts are in the
+interactive Swagger UI at `/docs`.
+
+## Authentication and authorization
+
+- Passwords are hashed with bcrypt (12 rounds); access tokens are signed
+  HS256 JWTs with `sub`, `type`, `iat`, and `exp` claims. Refresh tokens and
+  auth cookies are not implemented.
+- Public registration always creates a `recruiter` — there is no public
+  admin-registration endpoint. The first `admin` is created via an
+  interactive CLI (see below).
+- RBAC is enforced on the backend with FastAPI dependencies and mirrored in
+  the frontend (e.g. recruiters don't see Export or Delete controls). The
+  backend remains the authoritative security boundary in all cases.
+- The frontend stores the access token in tab-scoped `sessionStorage`; a
+  shared Axios interceptor attaches the bearer token and redirects to
+  `/login` on any `401`.
+
+## Cloud deployment
+
+This project is deployed using a production-oriented cloud architecture:
+
+- **Stateless backend services** — the FastAPI app holds no in-process state
+  between requests, so it scales horizontally on Cloud Run without sticky
+  sessions.
+- **Managed PostgreSQL database** — Cloud SQL handles backups, patching, and
+  availability instead of a self-managed database instance.
+- **Durable vector storage** — candidate metadata and RAG chunks/embeddings
+  live in the same PostgreSQL instance, so there's no separate vector store
+  to keep in sync or lose on restart.
+- **Containerized deployment** — the backend ships as a Docker image built
+  from the same `Dockerfile` used locally and in CI.
+- **Automated CI/CD** — every push is tested, and the backend is built and
+  deployed, through GitHub Actions, while a separate frontend workflow
+  lints and build-verifies the Next.js app on every push, removing manual
+  deployment steps.
+
+Backend:
+- FastAPI deployed on Google Cloud Run
+- Cloud Run URL: https://ats-api-355421066989.asia-southeast1.run.app
+- Swagger UI: https://ats-api-355421066989.asia-southeast1.run.app/docs
+
+Frontend:
+- Next.js deployed on Vercel
+- Live URL: https://ai-document-intelligence-9ut04o1zh-ats-resume-intelligence.vercel.app
 
 ```text
-AI-Document-Intelligence/
-|-- backend/
-|   |-- app/
-|   |   |-- api/              # FastAPI routes and auth dependencies
-|   |   |-- core/             # Environment config, security, exceptions
-|   |   |-- database/         # SQLAlchemy engine and ORM models
-|   |   |-- models/           # Pydantic schemas
-|   |   |-- repositories/     # Database access
-|   |   |-- services/         # Business, AI, scoring, and indexing logic
-|   |   |-- rag/              # Prompts, chains, chunking, evaluation
-|   |   `-- vector/           # pgvector, BM25, hybrid retrieval
-|   |-- alembic/              # Database migrations
-|   |-- scripts/create_admin.py
-|   |-- tests/
-|   |-- Dockerfile
-|   |-- main.py
-|   `-- requirements.txt
-|-- frontend/
-|   |-- app/                  # Next.js App Router pages
-|   |-- components/           # Auth, layout, candidate, dashboard, UI
-|   |-- contexts/             # Authentication context
-|   |-- lib/                  # Browser token and flash-message storage
-|   |-- services/             # Axios client and API services
-|   |-- types/                # Shared frontend auth types
-|   `-- package.json
-|-- assets/screenshots/
-|-- docs/evaluation.md
-|-- docker-compose.yml
-|-- .env.example
-`-- README.md
+Developer
+  -> GitHub repository
+  -> GitHub Actions
+       Backend CI/CD (.github/workflows/test.yml)
+         -> Backend tests (pgvector-enabled PostgreSQL service)
+         -> Alembic migration
+         -> Docker build
+         -> Push image to Artifact Registry
+         -> Deploy to Cloud Run
+         -> Health check
+       Frontend CI (.github/workflows/frontend-ci.yml)
+         -> npm ci
+         -> ESLint
+         -> Next.js production build
 ```
 
-## Configuration
+There are two independent GitHub Actions workflows. The backend workflow
+(`test.yml`) runs the pytest suite against a real PostgreSQL + pgvector
+service container, applies Alembic migrations, builds and pushes the Docker
+image to Artifact Registry, deploys to Cloud Run, and runs a post-deploy
+health check. The frontend workflow (`frontend-ci.yml`) installs
+dependencies with `npm ci`, runs ESLint, and runs a production Next.js build
+on every push, so frontend regressions are caught in CI before merge; the
+frontend itself deploys separately through Vercel's own Git integration.
 
-Copy the example file and replace placeholders with environment-specific
-values. Never commit a populated `.env` file.
-
-```bash
-cp .env.example .env
-```
-
-### Required backend variables
-
-| Variable | Requirement |
+| Component | Role |
 | --- | --- |
-| `DATABASE_URL` | SQLAlchemy PostgreSQL connection URL; no default |
-| `GEMINI_API_KEY` | Google Gemini API key; application import fails if missing |
-| `JWT_SECRET_KEY` | Signing secret; token operations require at least 32 UTF-8 bytes |
+| Google Cloud Run | Serverless container hosting for the FastAPI backend |
+| Google Artifact Registry | Docker image storage |
+| Cloud SQL (PostgreSQL + pgvector) | Managed database and vector store |
+| Google Cloud Storage (GCS) | Private resume PDF object storage |
+| Vercel | Hosting and deployment for the Next.js frontend |
+| GitHub Actions | Backend CI/CD (test, build, deploy) and frontend CI (lint, build) |
 
-`JWT_ALGORITHM` is configurable but the implementation supports only `HS256`.
+Vector search and BM25 both read from Cloud SQL as the shared source of
+truth, so scaling to multiple Cloud Run instances doesn't fragment or lose
+RAG data — there is no local index file or separate vector database to keep
+in sync.
 
-### Optional backend variables and verified defaults
+## Engineering decisions
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `APP_NAME` | `AI Resume Intelligence` | FastAPI title and logs |
-| `APP_VERSION` | `1.0.0` | FastAPI version |
-| `ENVIRONMENT` | `development` | Enables startup `create_all` only in development when not testing |
-| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated allowed browser origins |
-| `JWT_ALGORITHM` | `HS256` | Access-token signature algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access-token lifetime |
-| `MAX_UPLOAD_SIZE_MB` | `10` | Maximum PDF size |
-| `EMBEDDING_MODEL_NAME` | `paraphrase-MiniLM-L3-v2` | SentenceTransformer model |
-| `EMBEDDING_BATCH_SIZE` | `16` | Batch embedding size |
-| `RAG_CHUNK_SIZE` | `1000` | Recursive splitter character size |
-| `RAG_CHUNK_OVERLAP` | `150` | Recursive splitter overlap |
-| `DATABASE_MAX_RETRIES` | `10` | Initial database connection attempts |
-| `DATABASE_RETRY_DELAY_SECONDS` | `3` | Delay between connection attempts |
-| `DATABASE_POOL_SIZE` | `5` | SQLAlchemy pool size |
-| `DATABASE_MAX_OVERFLOW` | `10` | SQLAlchemy pool overflow |
-| `TESTING` | `false` | Skips startup database connection checks when `true` |
-| `PORT` | `8000` | Uvicorn port used by the Docker command |
+**Why PostgreSQL + pgvector instead of a separate vector database?**
+A dedicated vector database (Pinecone, Weaviate, Chroma, etc.) adds another
+system to operate, secure, and keep consistent with the primary database.
+Using pgvector keeps candidate metadata and embeddings in the same
+PostgreSQL instance, in the same transaction — a candidate and its
+embeddings either commit together or roll back together, with one
+connection pool and one backup/restore story instead of two.
 
-The current `.env.example` also contains `FRONTEND_URL`, but application code
-does not read it; configure browser access with `CORS_ORIGINS` instead.
+**Why hybrid search instead of vector-only?**
+Vector search is strong at semantic meaning ("backend engineer" matching
+"API developer") but can miss exact terms that matter a lot in recruiting —
+specific tool names, certifications, or acronyms. BM25 is strong at exact
+keyword matches but blind to paraphrasing. Fusing both with Reciprocal Rank
+Fusion gets the benefits of each without picking one failure mode over the
+other.
 
-### Frontend variable
+**Why RAG instead of letting the LLM answer from its own knowledge?**
+An LLM asked "does this candidate know Kubernetes?" without grounding will
+happily guess. Retrieval-augmented generation forces every answer to be
+built from actually-retrieved resume text, which reduces hallucination,
+keeps answers explainable (the evidence is traceable to specific chunks),
+and lets the no-information path trigger honestly when there's no
+supporting evidence instead of the model inventing one.
 
-Create `frontend/.env.local`:
+## Environment variables
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+Configuration is managed entirely through environment variables — copy
+`.env.example` to `.env` and fill in real values locally; never commit a
+populated `.env` file. In production, secrets (`DATABASE_URL`,
+`GEMINI_API_KEY`, `JWT_SECRET_KEY`) are injected through the deployment
+environment (e.g. Cloud Run environment configuration / Secret Manager),
+not committed to the repository.
 
-`NEXT_PUBLIC_API_URL` is required when the shared Axios client is imported. It
-is public frontend configuration and must not contain a secret.
+Required: `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET_KEY` (minimum 32
+bytes). Everything else — CORS origins, token lifetime, upload size limits,
+embedding model, chunking parameters, database pool sizing — has a sensible
+default and is documented inline in `.env.example`.
+
+The frontend requires one public (non-secret) variable,
+`NEXT_PUBLIC_API_URL`, in `frontend/.env.local`.
 
 ## Local development
 
 ### Prerequisites
 
-- Python 3.13 (the version used by the backend Docker image and CI)
-- PostgreSQL 16, or Docker for the provided database service
+- Python 3.13
+- PostgreSQL 16 (or Docker for the provided database service)
 - Node.js and npm compatible with Next.js 16
 - A Gemini API key
 
-### 1. Create the environment file
-
-From the repository root:
+### 1. Environment and database
 
 ```bash
 cp .env.example .env
-```
-
-When using the provided PostgreSQL container with a locally running backend,
-use this database URL because Compose publishes PostgreSQL on host port `5433`:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5433/resume_db
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-JWT_SECRET_KEY=REPLACE_WITH_A_RANDOM_SECRET_OF_AT_LEAST_32_BYTES
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-CORS_ORIGINS=http://localhost:3000
-```
-
-The values above are placeholders, not production secrets.
-
-### 2. Start PostgreSQL
-
-```bash
 docker compose up -d db
 ```
 
-### 3. Install and run the backend
-
-Create a virtual environment from the repository root:
+### 2. Backend
 
 ```bash
 python -m venv .venv
-```
-
-Activate it on macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Or activate it in PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Install dependencies, apply migrations, and run the API:
-
-```bash
+source .venv/bin/activate        
 cd backend
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 alembic upgrade head
 python -m uvicorn main:app --reload
 ```
 
-The API is available at `http://localhost:8000`; Swagger UI is at
-`http://localhost:8000/docs`.
+API: `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`
 
-### 4. Install and run the frontend
-
-Create `frontend/.env.local` with `NEXT_PUBLIC_API_URL`, then:
+### 3. Frontend
 
 ```bash
 cd frontend
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm install
 npm run dev
 ```
 
-The frontend is available at `http://localhost:3000`.
+Frontend: `http://localhost:3000`
 
-Production validation and build:
+### 4. Create the first administrator
 
-```bash
-npm run lint
-npx tsc --noEmit --incremental false
-npm run build
-```
-
-Run the built frontend with:
+Public registration only creates recruiters. Bootstrap the first admin via
+the interactive CLI (prompts for email, name, and password; nothing is
+printed to the terminal):
 
 ```bash
-npm run start
+cd backend
+python scripts/create_admin.py
 ```
 
-## Docker
-
-`docker-compose.yml` defines two services:
-
-| Service | Container | Published port | Storage |
-| --- | --- | --- | --- |
-| `api` | `resume_api` | `8000:8080` | `./backend:/app` |
-| `db` | `resume_db` | `5433:5432` | pgvector/PostgreSQL data in `pgdata` |
-
-The API image uses Python 3.13, installs `backend/requirements.txt`, and runs
-Uvicorn on `0.0.0.0:${PORT:-8080}`. Compose loads the root `.env` for the API
-and overrides `DATABASE_URL` with the internal
-`postgresql://postgres:postgres@db:5432/resume_db` address.
-
-Start and migrate the backend stack:
+### Docker (full backend stack)
 
 ```bash
 docker compose up -d --build db api
 docker compose exec api alembic upgrade head
 ```
 
-Follow API logs:
-
-```bash
-docker compose logs -f api
-```
-
-The Compose file does not define a frontend service. Run the frontend locally
-against `http://localhost:8000` or deploy it separately. Candidate and RAG data
-persist together in PostgreSQL's `pgdata` volume; no local vector/BM25 index
-volume is required.
-
-## Create the first administrator
-
-Public registration intentionally creates recruiters only. Create the first
-administrator directly through the interactive bootstrap CLI after applying
-database migrations. It prompts for email, full name, password, and password
-confirmation; passwords are read with `getpass` and are never printed.
-
-Local command from the backend directory:
-
-```bash
-cd backend
-alembic upgrade head
-python scripts/create_admin.py
-```
-
-Inside the running API container:
-
-```bash
-docker compose exec api alembic upgrade head
-docker compose exec api python scripts/create_admin.py
-```
-
-The command creates an active `admin`, rejects duplicate email addresses,
-rolls back failures, and exits nonzero on failure.
+The `docker-compose.yml` defines local `api` and `db` services for
+development only; there is no frontend service in Compose — run it locally
+or deploy it separately.
 
 ## Testing
 
-### Backend
-
-From the backend directory:
+Backend:
 
 ```bash
 cd backend
-pytest -v
+pytest -q
 ```
 
-Or inside the API container:
+The suite covers:
 
-```bash
-docker compose exec api pytest -v
-```
+- **Unit-level logic**: rule-based scoring, chunking, RRF fusion
+- **Integration tests**: authentication, real JWT/RBAC enforcement,
+  candidate CRUD, upload orchestration, semantic and hybrid retrieval,
+  assistant/recommendation behavior, CSV export, and the admin CLI
+- **Database migration validation**: tests run against a real
+  pgvector-enabled PostgreSQL instance with Alembic migrations applied,
+  not a mocked database
+- **CI verification**: every push runs the full suite in GitHub Actions
+  against a fresh PostgreSQL + pgvector service container
 
-The suite covers health, authentication, real JWT/RBAC paths, candidates,
-dashboard data, upload orchestration, scoring, semantic and hybrid retrieval,
-assistant/recommendation behavior, CSV export, and the administrator CLI. The
-hybrid-search test loads the SentenceTransformer model, so its first run may
-need network access to download the configured model.
+The hybrid-search tests load the SentenceTransformer model, so the first
+run may need network access to download it.
 
-### Frontend
-
-No frontend unit-test runner is configured in `package.json`. The available
-quality checks are:
+Frontend:
 
 ```bash
 cd frontend
+npm ci
 npm run lint
-npx tsc --noEmit --incremental false
 npm run build
 ```
 
-The GitHub Actions workflow currently installs backend dependencies, starts a
-pgvector-enabled PostgreSQL 16 service, applies Alembic migrations, and runs
-pytest. It does not run the frontend checks.
+All three commands run automatically on every push via the frontend CI
+workflow (`.github/workflows/frontend-ci.yml`), so lint and build
+regressions are caught before merge, independently of the backend pipeline.
 
-## Operational notes
+## Repository structure
 
-- Resume upload, Gemini calls, database writes, and indexing execute in the
-  request path; there is no background worker or queue.
-- Candidate metadata and durable resume chunks share one PostgreSQL transaction;
-  indexing failure rolls back both and triggers GCS compensation.
-- Vector retrieval and BM25 reconstruction use PostgreSQL as their shared source
-  of truth, so Cloud Run instance restarts do not lose RAG data.
-- Access tokens are not refreshable and are stored in browser
-  `sessionStorage`.
-- Development startup calls `Base.metadata.create_all`, but Alembic migrations
-  remain the required schema-management workflow.
+```text
+AI-Document-Intelligence/
+├── backend/
+│   ├── app/
+│   │   ├── api/                # HTTP endpoints
+│   │   ├── core/               # Config, security, exceptions
+│   │   ├── database/           # SQLAlchemy models and engine
+│   │   ├── models/             # Pydantic schemas
+│   │   ├── repositories/       # Database access
+│   │   ├── services/           # Business logic and AI pipeline
+│   │   ├── rag/                # Prompting, chunking, retrieval
+│   │   └── vector/             # pgvector, BM25, hybrid search
+│   ├── alembic/                # Migrations
+│   ├── scripts/                # Admin CLI
+│   ├── tests/                  # Pytest suite
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── app/                    # Next.js App Router pages
+│   ├── components/             # Reusable UI components
+│   ├── services/               # Typed API clients
+│   ├── hooks/
+│   ├── contexts/               # React context providers (auth state)
+│   └── types/                  # Shared TypeScript types
+│
+├── .github/
+│   └── workflows/
+│       ├── test.yml            # Backend CI/CD
+│       └── frontend-ci.yml     # Frontend CI
+│
+├── assets/
+│   └── screenshots/            # Images referenced in this README
+├── docker-compose.yml
+└── README.md
+```
+
+## Future improvements
+
+- **Better RAG evaluation framework** — introduce systematic retrieval and
+  answer-quality metrics to evaluate grounding accuracy, retrieval relevance,
+  and assistant performance instead of relying on manual spot checks.
+
+- **Async background processing** — move Gemini extraction, embedding generation,
+  and indexing workloads into a background queue/worker architecture to reduce
+  upload latency and improve scalability.
+
+- **More advanced embedding models** — evaluate larger or domain-specific
+  embedding models against the current `paraphrase-MiniLM-L3-v2` baseline to
+  improve retrieval quality.
+
+- **Production monitoring and observability** — integrate structured logging,
+  distributed tracing, Cloud Logging, and AI pipeline monitoring to track
+  extraction failures, retrieval quality, model latency, and system health.
+
+- **Multi-tenant recruiter workspace** — support organization-based isolation
+  with separate recruiter teams, users, and candidate pools instead of a
+  single shared workspace.
+
+- **Improved authentication security** — introduce refresh tokens and
+  HttpOnly cookie-based authentication to replace browser storage tokens and
+  improve resistance against token-related security risks.
 
 ## Screenshots
 
@@ -599,4 +693,3 @@ All images below already exist in `assets/screenshots`.
 ![Top candidates API](assets/screenshots/top-candidates.png)
 
 ![CSV export API](assets/screenshots/csv-export.png)
-# test push trigger
