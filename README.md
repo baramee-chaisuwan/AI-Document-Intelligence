@@ -596,6 +596,51 @@ AI-Document-Intelligence/
 └── README.md
 ```
 
+## Promoting a user to admin
+
+The system uses role-based access control (RBAC) with two roles:
+
+- `admin` — full system access
+- `recruiter` — candidate management and recruitment workflows
+
+Public registration always creates a `recruiter` account (see
+[Authentication and authorization](#authentication-and-authorization)), and
+`scripts/create_admin.py` bootstraps a brand-new admin from scratch (see
+[Create the first administrator](#4-create-the-first-administrator)). To
+promote an *already-registered* user to admin instead, update their role
+directly in PostgreSQL:
+
+```sql
+UPDATE users
+SET role = 'admin'
+WHERE email = 'your-email@example.com';
+```
+
+Example:
+
+```sql
+UPDATE users
+SET role = 'admin'
+WHERE email = 'admin@example.com';
+```
+
+The user must log in again afterward — the change takes effect on the next
+issued JWT, not retroactively on tokens already in circulation.
+
+**Local (Docker Postgres)**
+
+```bash
+docker exec -it resume_db psql -U postgres -d resume_db
+```
+
+Then run the `UPDATE` statement above at the `psql` prompt.
+
+**Cloud SQL**
+
+Connect via the Cloud SQL Auth Proxy or Cloud SQL Studio in the Google Cloud
+Console, then run the same `UPDATE` statement against the production
+database.
+
 ## Future improvements
 
 - **Better RAG evaluation framework** — introduce systematic retrieval and
