@@ -20,6 +20,8 @@ jobs:
 
     timeout-minutes: 15
 
+    env:
+      NEXT_PUBLIC_API_URL: https://ats-api-355421066989.asia-southeast1.run.app
 
     defaults:
       run:
