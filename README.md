@@ -153,30 +153,51 @@ Designed and implemented the full AI application stack, end to end:
 ## Architecture
 
 ```text
-                                Gemini 2.5 Flash API
-                                        ^
-                                        |
 User
-  |
-  v
-Next.js Frontend  (App Router, React, TypeScript) (Vercel)
-  |
-  | HTTP/JSON + Bearer JWT
-  v
+ |
+ v
+Next.js Frontend
+(App Router, React, TypeScript)
+(Vercel)
+ |
+ | HTTPS / JSON
+ | Bearer JWT
+ v
 FastAPI Backend
-  |
-  v
-Service Layer        (business logic, AI orchestration, scoring, RAG)
-  |
-  v
-Repository Layer      (SQLAlchemy data access)
-  |
-  +------------------------+
-  |                        |
-  v                        v
-Google Cloud Storage    PostgreSQL + pgvector
-(private resume PDFs)   (candidates, users, resume chunks, embeddings)
+(Cloud Run)
+ |
+ v
++------------------------------------------------+
+| Service Layer                     <----------> | Gemini 2.5 Flash API
+| - Resume Extraction                             |
+| - AI Scoring                                    |
+| - Recommendation                                |
+| - RAG Pipeline                                  |
+| - Embedding & Indexing                          |
++------------------------------------------------+
+ |
+ +-----------------------+
+ |                       |
+ v                       v
+Repository Layer        Storage Service
+(SQLAlchemy)             (Google Cloud Storage)
+ |                       |
+ v                       v
+PostgreSQL               Private Resume PDFs
++ pgvector
+ |
+ |
+ v
+Candidates
+Users
+Resume Chunks
+Embeddings
 ```
+
+## Architecture Diagram
+
+![Architecture Diagram](assets/screenshots/architecture.png)
+
 
 The service layer calls out to **Gemini 2.5 Flash** for extraction and
 generation, **PyMuPDF** for PDF text extraction, and **SentenceTransformer**
