@@ -11,9 +11,14 @@ semantic search and the RAG assistant.
 
 ## Links
 
-- **Live demo**: https://ai-document-intelligence-9ut04o1zh-ats-resume-intelligence.vercel.app
-- **API documentation (Swagger UI)**: https://ats-api-355421066989.asia-southeast1.run.app/docs
-- **Repository**: https://github.com/baramee-chaisuwan/AI-Document-Intelligence
+- **Live Demo (Vercel)**  
+  https://ai-document-intelligence-nu.vercel.app
+
+- **Backend API Documentation (Swagger UI)**  
+  https://ats-api-355421066989.asia-southeast1.run.app/docs
+
+- **Source Code (GitHub)**  
+  https://github.com/baramee-chaisuwan/AI-Document-Intelligence
 
 ## Tech stack
 
