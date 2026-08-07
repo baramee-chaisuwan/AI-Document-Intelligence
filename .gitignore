@@ -6,10 +6,17 @@ __pycache__/
 .pytest_cache/
 
 uploads/
+# Legacy local vector database
 backend/chroma_db/
+
 backend/data/
 
 *.db
 
 frontend/node_modules/
 frontend/.next/
+
+*.log
+.DS_Store
+.vscode/
+.idea/
