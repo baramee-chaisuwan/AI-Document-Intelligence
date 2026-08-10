@@ -3,6 +3,7 @@ from datetime import (
     timedelta,
     timezone
 )
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,9 +22,9 @@ from app.database.database import (
 )
 from app.database.models import (
     Job,
-    User,
-    empty_job_requirements
+    User
 )
+from app.services import job_service
 from main import app
 
 
@@ -73,6 +74,23 @@ def isolated_jobs_database(monkeypatch):
         security,
         "JWT_SECRET_KEY",
         TEST_JWT_SECRET
+    )
+    monkeypatch.setattr(
+        job_service,
+        "extract_job_requirements",
+        lambda description: {
+            "required_skills": ["Python"],
+            "preferred_skills": [],
+            "experience_requirements": [],
+            "responsibilities": [
+                "Build reliable APIs"
+            ]
+        }
+    )
+    monkeypatch.setattr(
+        job_service,
+        "create_embedding",
+        lambda description: [0.25] * 384
     )
 
     yield
@@ -135,9 +153,15 @@ def test_recruiter_creates_persisted_job_with_ownership(
     data = response.json()
     assert data["title"] == "Senior Backend Engineer"
     assert data["description"] == "Build reliable APIs."
-    assert data["extracted_requirements"] == (
-        empty_job_requirements()
-    )
+    assert data["extracted_requirements"] == {
+        "required_skills": ["Python"],
+        "preferred_skills": [],
+        "experience_requirements": [],
+        "responsibilities": [
+            "Build reliable APIs"
+        ]
+    }
+    assert "embedding" not in data
 
     with TestingSessionLocal() as db:
         job = db.get(Job, data["id"])
@@ -151,8 +175,10 @@ def test_recruiter_creates_persisted_job_with_ownership(
         assert job.title == "Senior Backend Engineer"
         assert job.description == "Build reliable APIs."
         assert job.extracted_requirements == (
-            empty_job_requirements()
+            data["extracted_requirements"]
         )
+        assert len(job.embedding) == 384
+        assert job.embedding == [0.25] * 384
         assert job.created_by == recruiter.id
         assert data["created_by"] == recruiter.id
 
@@ -227,6 +253,82 @@ def test_job_endpoints_require_authentication(client):
 
     assert create_response.status_code == 401
     assert list_response.status_code == 401
+
+
+def test_extraction_failure_does_not_persist_job(
+    client,
+    role_headers,
+    monkeypatch
+):
+
+    embedding_mock = Mock(
+        return_value=[0.25] * 384
+    )
+    monkeypatch.setattr(
+        job_service,
+        "extract_job_requirements",
+        Mock(
+            side_effect=RuntimeError(
+                "extraction unavailable"
+            )
+        )
+    )
+    monkeypatch.setattr(
+        job_service,
+        "create_embedding",
+        embedding_mock
+    )
+
+    response = client.post(
+        "/jobs",
+        json={
+            "title": "Backend Engineer",
+            "description": "Build APIs."
+        },
+        headers=role_headers["recruiter"]
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": (
+            "Job processing service is unavailable"
+        )
+    }
+    embedding_mock.assert_not_called()
+
+    with TestingSessionLocal() as db:
+        assert db.query(Job).count() == 0
+
+
+def test_embedding_failure_does_not_persist_job(
+    client,
+    role_headers,
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        job_service,
+        "create_embedding",
+        Mock(
+            side_effect=RuntimeError(
+                "embedding unavailable"
+            )
+        )
+    )
+
+    response = client.post(
+        "/jobs",
+        json={
+            "title": "Backend Engineer",
+            "description": "Build APIs."
+        },
+        headers=role_headers["recruiter"]
+    )
+
+    assert response.status_code == 503
+
+    with TestingSessionLocal() as db:
+        assert db.query(Job).count() == 0
 
 
 def test_get_jobs_returns_deterministic_newest_first_order(

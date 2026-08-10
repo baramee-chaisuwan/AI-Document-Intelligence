@@ -187,6 +187,11 @@ class Job(Base):
         default=empty_job_requirements
     )
 
+    embedding = Column(
+        Vector(384),
+        nullable=True
+    )
+
     created_by = Column(
         Integer,
         ForeignKey(

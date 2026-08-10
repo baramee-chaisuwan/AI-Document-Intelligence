@@ -1,6 +1,7 @@
 from fastapi import (
     APIRouter,
     Depends,
+    HTTPException,
     status
 )
 from sqlalchemy.orm import Session
@@ -37,11 +38,23 @@ def create_job(
     )
 ):
 
-    return job_service.create_job(
-        db,
-        data,
-        current_user
-    )
+    try:
+        return job_service.create_job(
+            db,
+            data,
+            current_user
+        )
+
+    except job_service.JobProcessingError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "Job processing service "
+                "is unavailable"
+            )
+        ) from error
 
 
 @router.get(
