@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
+from app.models.candidate_stage import CandidateStage
 from app.models.candidate_update_model import CandidateUpdate
 from app.repositories import candidate_repository
 
@@ -164,3 +165,24 @@ def get_candidate_by_id(
         raise NotFoundError("Candidate not found")
 
     return candidate
+
+
+def update_candidate_stage(
+    db: Session,
+    candidate_id: int,
+    candidate_stage: CandidateStage
+):
+
+    candidate = candidate_repository.get_candidate_by_id(
+        db,
+        candidate_id
+    )
+
+    if not candidate:
+        raise NotFoundError("Candidate not found")
+
+    return candidate_repository.update_candidate_stage(
+        db,
+        candidate,
+        candidate_stage.value
+    )

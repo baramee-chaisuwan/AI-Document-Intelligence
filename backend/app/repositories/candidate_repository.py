@@ -47,6 +47,19 @@ def update_candidate(
 
     return candidate
 
+
+def update_candidate_stage(
+    db: Session,
+    candidate: Candidate,
+    candidate_stage: str
+):
+    candidate.candidate_stage = candidate_stage
+    db.add(candidate)
+    db.commit()
+    db.refresh(candidate)
+
+    return candidate
+
 def search_candidates(
     db: Session,
     name: str | None = None,

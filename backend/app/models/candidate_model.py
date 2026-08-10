@@ -1,6 +1,8 @@
 from datetime import datetime
 from pydantic import BaseModel
 
+from app.models.candidate_stage import CandidateStage
+
 
 class CandidateResponse(BaseModel):
 
@@ -8,6 +10,7 @@ class CandidateResponse(BaseModel):
     name: str
     summary: str
     candidate_level: str
+    candidate_stage: CandidateStage
     skill_score: int
     created_at: datetime
     rule_score: int

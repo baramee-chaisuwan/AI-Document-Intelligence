@@ -9,7 +9,10 @@ from app.api.dependencies import (
 from app.database.database import get_db
 from app.models.candidate_model import CandidateResponse, RankingResponse
 from app.models.candidate_stats_model import CandidateStatsResponse
-from app.models.candidate_update_model import CandidateUpdate
+from app.models.candidate_update_model import (
+    CandidateStageUpdate,
+    CandidateUpdate
+)
 from app.services import candidate_service
 
 router = APIRouter(
@@ -109,6 +112,29 @@ def update_candidate(
     db: Session = Depends(get_db)
 ):
     return candidate_service.update_candidate(db, candidate_id, data)
+
+
+@router.put(
+    "/{candidate_id:int}/stage",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
+    response_model=CandidateResponse,
+    summary="Update candidate pipeline stage",
+    description=(
+        "Moves a candidate to an allowed recruiter workflow stage."
+    )
+)
+def update_candidate_stage(
+    candidate_id: int,
+    data: CandidateStageUpdate,
+    db: Session = Depends(get_db)
+):
+    return candidate_service.update_candidate_stage(
+        db,
+        candidate_id,
+        data.candidate_stage
+    )
     
 @router.get(
     "/{candidate_id:int}",

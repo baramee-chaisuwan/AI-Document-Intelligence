@@ -20,6 +20,10 @@ from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
 from app.database.database import Base
+from app.models.candidate_stage import (
+    CANDIDATE_STAGE_CHECK_SQL,
+    CandidateStage
+)
 
 
 def utc_now():
@@ -218,6 +222,13 @@ class Candidate(Base):
 
     __tablename__ = "candidates"
 
+    __table_args__ = (
+        CheckConstraint(
+            CANDIDATE_STAGE_CHECK_SQL,
+            name="ck_candidates_candidate_stage"
+        ),
+    )
+
     id = Column(
         Integer,
         primary_key=True,
@@ -238,6 +249,13 @@ class Candidate(Base):
     candidate_level = Column(
         String(50),
         nullable=False
+    )
+
+    candidate_stage = Column(
+        String(20),
+        nullable=False,
+        default=CandidateStage.APPLIED.value,
+        server_default=CandidateStage.APPLIED.value
     )
 
     skill_score = Column(
