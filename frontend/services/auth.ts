@@ -6,6 +6,8 @@ import type {
     AccessTokenResponse,
     AuthUser,
     LoginCredentials,
+    MessageResponse,
+    PasswordResetTokenResponse,
     RegisterCredentials,
 } from "@/types/auth";
 
@@ -175,4 +177,76 @@ export async function getCurrentUser():
 
     }
 
+}
+
+
+export async function requestPasswordReset(
+    email: string
+): Promise<MessageResponse> {
+
+    try {
+        const response = await api.post<MessageResponse>(
+            "/auth/forgot-password",
+            { email }
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            authErrorMessage(
+                error,
+                "Unable to request a verification code."
+            )
+        );
+    }
+}
+
+
+export async function verifyPasswordResetOTP(
+    email: string,
+    otp: string
+): Promise<PasswordResetTokenResponse> {
+
+    try {
+        const response = (
+            await api.post<PasswordResetTokenResponse>(
+                "/auth/verify-reset-otp",
+                { email, otp }
+            )
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            authErrorMessage(
+                error,
+                "The verification code is invalid or expired."
+            )
+        );
+    }
+}
+
+
+export async function resetPassword(
+    resetToken: string,
+    newPassword: string,
+    confirmPassword: string
+): Promise<MessageResponse> {
+
+    try {
+        const response = await api.post<MessageResponse>(
+            "/auth/reset-password",
+            {
+                reset_token: resetToken,
+                new_password: newPassword,
+                confirm_password: confirmPassword,
+            }
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(
+            authErrorMessage(
+                error,
+                "Unable to reset your password."
+            )
+        );
+    }
 }

@@ -27,6 +27,32 @@ def get_user_by_id(
     )
 
 
+def get_user_by_email_for_update(
+    db: Session,
+    email: str
+):
+
+    return (
+        db.query(User)
+        .filter(User.email == email)
+        .with_for_update()
+        .first()
+    )
+
+
+def get_user_by_id_for_update(
+    db: Session,
+    user_id: int
+):
+
+    return (
+        db.query(User)
+        .filter(User.id == user_id)
+        .with_for_update()
+        .first()
+    )
+
+
 def create_user(
     db: Session,
     user: User

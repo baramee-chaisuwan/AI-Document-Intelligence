@@ -30,3 +30,15 @@ export interface AccessTokenResponse {
     token_type: "bearer";
     expires_in: number;
 }
+
+
+export interface MessageResponse {
+    message: string;
+}
+
+
+export interface PasswordResetTokenResponse {
+    reset_token: string;
+    token_type: "password_reset";
+    expires_in: number;
+}

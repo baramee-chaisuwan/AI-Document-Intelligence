@@ -13,7 +13,8 @@ import bcrypt
 from app.core.config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_ALGORITHM,
-    JWT_SECRET_KEY
+    JWT_SECRET_KEY,
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
 )
 
 
@@ -89,7 +90,14 @@ def _get_jwt_secret() -> str:
     return JWT_SECRET_KEY
 
 
-def create_access_token(user_id: int) -> str:
+def _create_token(
+    *,
+    user_id: int,
+    token_type: str,
+    expires_minutes: int,
+    token_version: int,
+    challenge_id: int | None = None
+) -> str:
 
     now = datetime.now(timezone.utc)
 
@@ -106,18 +114,20 @@ def create_access_token(user_id: int) -> str:
 
     payload = {
         "sub": str(user_id),
-        "type": "access",
+        "type": token_type,
+        "ver": token_version,
         "iat": int(now.timestamp()),
         "exp": int(
             (
                 now + timedelta(
-                    minutes=(
-                        ACCESS_TOKEN_EXPIRE_MINUTES
-                    )
+                    minutes=expires_minutes
                 )
             ).timestamp()
         )
     }
+
+    if challenge_id is not None:
+        payload["challenge_id"] = challenge_id
 
     header_segment = _base64url_encode(
         json.dumps(
@@ -150,7 +160,40 @@ def create_access_token(user_id: int) -> str:
     )
 
 
-def decode_access_token(token: str) -> int:
+def create_access_token(
+    user_id: int,
+    token_version: int = 0
+) -> str:
+
+    return _create_token(
+        user_id=user_id,
+        token_type="access",
+        expires_minutes=ACCESS_TOKEN_EXPIRE_MINUTES,
+        token_version=token_version
+    )
+
+
+def create_password_reset_token(
+    user_id: int,
+    challenge_id: int,
+    token_version: int
+) -> str:
+
+    return _create_token(
+        user_id=user_id,
+        token_type="password_reset",
+        expires_minutes=(
+            PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+        ),
+        token_version=token_version,
+        challenge_id=challenge_id
+    )
+
+
+def _decode_token(
+    token: str,
+    expected_type: str
+) -> dict:
 
     if JWT_ALGORITHM != "HS256":
 
@@ -242,7 +285,7 @@ def decode_access_token(token: str) -> int:
             "Token has expired"
         )
 
-    if payload.get("type") != "access":
+    if payload.get("type") != expected_type:
 
         raise InvalidTokenError(
             "Invalid token type"
@@ -258,10 +301,71 @@ def decode_access_token(token: str) -> int:
 
     try:
 
-        return int(subject)
+        user_id = int(subject)
 
     except (TypeError, ValueError) as error:
 
         raise InvalidTokenError(
             "Token subject is invalid"
         ) from error
+
+    token_version = payload.get("ver", 0)
+
+    if (
+        not isinstance(token_version, int)
+        or isinstance(token_version, bool)
+        or token_version < 0
+    ):
+
+        raise InvalidTokenError(
+            "Token version is invalid"
+        )
+
+    return {
+        **payload,
+        "user_id": user_id,
+        "token_version": token_version
+    }
+
+
+def decode_access_token_claims(
+    token: str
+) -> dict:
+
+    return _decode_token(
+        token,
+        "access"
+    )
+
+
+def decode_access_token(token: str) -> int:
+
+    return decode_access_token_claims(
+        token
+    )["user_id"]
+
+
+def decode_password_reset_token(
+    token: str
+) -> dict:
+
+    payload = _decode_token(
+        token,
+        "password_reset"
+    )
+
+    challenge_id = payload.get(
+        "challenge_id"
+    )
+
+    if (
+        not isinstance(challenge_id, int)
+        or isinstance(challenge_id, bool)
+        or challenge_id <= 0
+    ):
+
+        raise InvalidTokenError(
+            "Reset challenge is invalid"
+        )
+
+    return payload

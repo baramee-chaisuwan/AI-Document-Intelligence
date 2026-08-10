@@ -14,6 +14,9 @@ import { useAuth } from "@/contexts/AuthContext";
 const PUBLIC_PATHS = new Set([
     "/login",
     "/register",
+    "/forgot-password",
+    "/verify-reset-otp",
+    "/reset-password",
 ]);
 
 const ADMIN_PATHS = new Set([

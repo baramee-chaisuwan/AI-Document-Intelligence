@@ -16,6 +16,7 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import { consumeRegistrationSuccess } from "@/lib/registration-flash";
+import { consumePasswordResetSuccess } from "@/lib/password-reset-flash";
 
 
 export default function LoginPage() {
@@ -35,7 +36,8 @@ export default function LoginPage() {
         const timer = window.setTimeout(
             () => {
                 setSuccess(
-                    consumeRegistrationSuccess()
+                    consumePasswordResetSuccess()
+                    ?? consumeRegistrationSuccess()
                     ?? ""
                 );
             },
@@ -176,12 +178,20 @@ export default function LoginPage() {
 
 
                         <div>
-                            <label
-                                htmlFor="password"
-                                className="text-sm font-medium text-gray-700"
-                            >
-                                Password
-                            </label>
+                            <div className="flex items-center justify-between gap-4">
+                                <label
+                                    htmlFor="password"
+                                    className="text-sm font-medium text-gray-700"
+                                >
+                                    Password
+                                </label>
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
 
                             <div className="relative mt-2">
                                 <LockKeyhole

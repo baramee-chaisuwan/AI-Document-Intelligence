@@ -75,6 +75,12 @@ class User(Base):
         default=True
     )
 
+    token_version = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -86,6 +92,58 @@ class User(Base):
         nullable=False,
         default=utc_now,
         onupdate=utc_now
+    )
+
+    password_reset_tokens = relationship(
+        "PasswordResetToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+
+class PasswordResetToken(Base):
+
+    __tablename__ = "password_reset_tokens"
+
+    __table_args__ = (
+        CheckConstraint(
+            "failed_attempts >= 0",
+            name="ck_password_reset_tokens_failed_attempts"
+        ),
+        Index(
+            "ix_password_reset_tokens_user_created",
+            "user_id",
+            "created_at"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    otp_hash = Column(String(255), nullable=False)
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now
+    )
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    invalidated_at = Column(DateTime(timezone=True), nullable=True)
+    failed_attempts = Column(Integer, nullable=False, default=0)
+
+    user = relationship(
+        "User",
+        back_populates="password_reset_tokens"
     )
 
 

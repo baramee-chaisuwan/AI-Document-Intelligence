@@ -118,7 +118,8 @@ def authenticate_user(
 
     return AccessTokenResponse(
         access_token=create_access_token(
-            user.id
+            user.id,
+            user.token_version
         ),
         expires_in=(
             ACCESS_TOKEN_EXPIRE_MINUTES

@@ -341,6 +341,9 @@ RAG assistant, recommendations, and admin-only CSV export.
 | `GET` | `/health/` | Health check | Public |
 | `POST` | `/auth/register` | Create recruiter account | Public |
 | `POST` | `/auth/login` | Issue JWT access token | Public |
+| `POST` | `/auth/forgot-password` | Request a password-reset OTP | Public |
+| `POST` | `/auth/verify-reset-otp` | Verify OTP and issue reset authorization | Public |
+| `POST` | `/auth/reset-password` | Set a new password | Public |
 | `GET` | `/auth/me` | Current authenticated user | Authenticated |
 | `GET` | `/candidates/` | Paginated candidate list | Authenticated |
 | `GET` | `/candidates/search` | Filter by name, level, minimum AI score | Staff |
@@ -362,8 +365,8 @@ interactive Swagger UI at `/docs`.
 ## Authentication and authorization
 
 - Passwords are hashed with bcrypt (12 rounds); access tokens are signed
-  HS256 JWTs with `sub`, `type`, `iat`, and `exp` claims. Refresh tokens and
-  auth cookies are not implemented.
+  HS256 JWTs with `sub`, `type`, `iat`, `exp`, and token-version claims.
+  Refresh tokens and auth cookies are not implemented.
 - Public registration always creates a `recruiter` — there is no public
   admin-registration endpoint. The first `admin` is created via an
   interactive CLI (see below).
@@ -373,6 +376,15 @@ interactive Swagger UI at `/docs`.
 - The frontend stores the access token in tab-scoped `sessionStorage`; a
   shared Axios interceptor attaches the bearer token and redirects to
   `/login` on any `401`.
+- Password recovery uses a six-digit, bcrypt-hashed, single-use OTP that
+  expires after 10 minutes. Verification is limited to five failed attempts,
+  and a maximum of three codes may be requested per account in a 15-minute
+  database-backed window. Forgot-password responses do not reveal whether an
+  account exists.
+- Successful OTP verification issues a separate short-lived
+  `password_reset` JWT tied to one challenge. Resetting the password consumes
+  that challenge and increments the user's token version, immediately
+  invalidating access tokens issued before the password change.
 
 ## Cloud deployment
 
@@ -473,7 +485,7 @@ supporting evidence instead of the model inventing one.
 Configuration is managed entirely through environment variables — copy
 `.env.example` to `.env` and fill in real values locally; never commit a
 populated `.env` file. In production, secrets (`DATABASE_URL`,
-`GEMINI_API_KEY`, `JWT_SECRET_KEY`) are injected through the deployment
+`GEMINI_API_KEY`, `JWT_SECRET_KEY`, `SMTP_PASSWORD`) are injected through the deployment
 environment (e.g. Cloud Run environment configuration / Secret Manager),
 not committed to the repository.
 
@@ -481,6 +493,13 @@ Required: `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET_KEY` (minimum 32
 bytes). Everything else — CORS origins, token lifetime, upload size limits,
 embedding model, chunking parameters, database pool sizing — has a sensible
 default and is documented inline in `.env.example`.
+
+Password-recovery email uses `EMAIL_BACKEND=console` for local development;
+the OTP is written only to the local backend log in that mode. Production
+must use `EMAIL_BACKEND=smtp` and configure `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_FROM_EMAIL`, TLS settings, and provider credentials when required.
+Console delivery is rejected when `ENVIRONMENT=production`, and raw provider
+errors are never returned by the public API.
 
 The frontend requires one public (non-secret) variable,
 `NEXT_PUBLIC_API_URL`, in `frontend/.env.local`.
@@ -513,6 +532,11 @@ python -m uvicorn main:app --reload
 ```
 
 API: `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`
+
+With the default development email backend, request a reset from
+`/forgot-password` and read the one-time code from the local backend console.
+Use an SMTP sandbox instead if local email delivery needs to be tested end to
+end; never place real SMTP credentials in `.env.example`.
 
 ### 3. Frontend
 
@@ -560,6 +584,7 @@ The suite covers:
 
 - **Unit-level logic**: rule-based scoring, chunking, RRF fusion
 - **Integration tests**: authentication, real JWT/RBAC enforcement,
+  password-reset OTP lifecycle and token invalidation,
   candidate CRUD, upload orchestration, semantic and hybrid retrieval,
   assistant/recommendation behavior, CSV export, and the admin CLI
 - **Database migration validation**: tests run against a real

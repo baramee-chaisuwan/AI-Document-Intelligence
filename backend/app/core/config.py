@@ -75,6 +75,39 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
     )
 )
 
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "10")
+)
+PASSWORD_RESET_OTP_EXPIRE_MINUTES = int(
+    os.getenv("PASSWORD_RESET_OTP_EXPIRE_MINUTES", "10")
+)
+PASSWORD_RESET_MAX_ATTEMPTS = int(
+    os.getenv("PASSWORD_RESET_MAX_ATTEMPTS", "5")
+)
+PASSWORD_RESET_REQUEST_LIMIT = int(
+    os.getenv("PASSWORD_RESET_REQUEST_LIMIT", "3")
+)
+PASSWORD_RESET_REQUEST_WINDOW_MINUTES = int(
+    os.getenv("PASSWORD_RESET_REQUEST_WINDOW_MINUTES", "15")
+)
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "console"
+).strip().lower()
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL")
+SMTP_USE_TLS = os.getenv(
+    "SMTP_USE_TLS",
+    "true"
+).lower() == "true"
+SMTP_TIMEOUT_SECONDS = int(
+    os.getenv("SMTP_TIMEOUT_SECONDS", "10")
+)
+
 GCS_BUCKET_NAME = os.getenv(
     "GCS_BUCKET_NAME"
 )

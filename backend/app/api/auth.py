@@ -12,11 +12,19 @@ from app.database.database import get_db
 from app.database.models import User
 from app.models.auth_model import (
     AccessTokenResponse,
+    ForgotPasswordRequest,
+    MessageResponse,
+    PasswordResetTokenResponse,
+    ResetPasswordRequest,
     UserLoginRequest,
     UserRegisterRequest,
-    UserResponse
+    UserResponse,
+    VerifyResetOTPRequest
 )
-from app.services import auth_service
+from app.services import (
+    auth_service,
+    password_reset_service
+)
 
 
 router = APIRouter(
@@ -51,6 +59,51 @@ def login(
 ):
 
     return auth_service.authenticate_user(
+        db,
+        data
+    )
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse
+)
+def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+
+    return password_reset_service.request_password_reset(
+        db,
+        data
+    )
+
+
+@router.post(
+    "/verify-reset-otp",
+    response_model=PasswordResetTokenResponse
+)
+def verify_reset_otp(
+    data: VerifyResetOTPRequest,
+    db: Session = Depends(get_db)
+):
+
+    return password_reset_service.verify_reset_otp(
+        db,
+        data
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse
+)
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+
+    return password_reset_service.reset_password(
         db,
         data
     )

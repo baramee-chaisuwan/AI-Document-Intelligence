@@ -21,7 +21,8 @@ from app.core.config import (
 from app.core.exceptions import (
     AuthenticationError,
     ConflictError,
-    NotFoundError
+    NotFoundError,
+    PasswordResetError
 )
 from app.database.database import (
     Base,
@@ -281,6 +282,22 @@ def authentication_handler(
         },
         headers={
             "WWW-Authenticate": "Bearer"
+        }
+    )
+
+
+@app.exception_handler(
+    PasswordResetError
+)
+def password_reset_handler(
+    request: Request,
+    exc: PasswordResetError
+):
+
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": exc.message
         }
     )
 

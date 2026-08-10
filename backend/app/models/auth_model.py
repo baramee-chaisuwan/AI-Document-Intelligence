@@ -6,7 +6,8 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    field_validator
+    field_validator,
+    model_validator
 )
 
 
@@ -127,4 +128,82 @@ class UserResponse(BaseModel):
 class AccessTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    expires_in: int
+
+
+class ForgotPasswordRequest(BaseModel):
+
+    email: str = Field(
+        min_length=3,
+        max_length=320
+    )
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str):
+
+        return UserRegisterRequest.normalize_email(
+            value
+        )
+
+
+class VerifyResetOTPRequest(
+    ForgotPasswordRequest
+):
+
+    otp: str = Field(
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$"
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+
+    reset_token: str = Field(min_length=1)
+    new_password: str = Field(
+        min_length=8,
+        max_length=72
+    )
+    confirm_password: str = Field(
+        min_length=8,
+        max_length=72
+    )
+
+    @field_validator(
+        "new_password",
+        "confirm_password"
+    )
+    @classmethod
+    def validate_password_bytes(cls, value: str):
+
+        return (
+            UserRegisterRequest
+            .validate_password_bytes(value)
+        )
+
+    @model_validator(mode="after")
+    def passwords_match(self):
+
+        if (
+            self.new_password
+            != self.confirm_password
+        ):
+
+            raise ValueError(
+                "Passwords do not match"
+            )
+
+        return self
+
+
+class MessageResponse(BaseModel):
+
+    message: str
+
+
+class PasswordResetTokenResponse(BaseModel):
+
+    reset_token: str
+    token_type: str = "password_reset"
     expires_in: int

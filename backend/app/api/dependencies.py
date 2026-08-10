@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import (
     InvalidTokenError,
-    decode_access_token
+    decode_access_token_claims
 )
 from app.database.database import get_db
 from app.database.models import User
@@ -51,7 +51,7 @@ def get_current_user(
 
     try:
 
-        user_id = decode_access_token(
+        claims = decode_access_token_claims(
             credentials.credentials
         )
 
@@ -64,10 +64,15 @@ def get_current_user(
 
     user = user_repository.get_user_by_id(
         db,
-        user_id
+        claims["user_id"]
     )
 
-    if not user or not user.is_active:
+    if (
+        not user
+        or not user.is_active
+        or user.token_version
+        != claims["token_version"]
+    ):
 
         raise _credentials_exception()
 
