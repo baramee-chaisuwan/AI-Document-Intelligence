@@ -10,7 +10,10 @@ import {
     getResetEmail,
     setResetToken,
 } from "@/lib/password-reset-storage";
-import { verifyPasswordResetOTP } from "@/services/auth";
+import {
+    requestPasswordReset,
+    verifyPasswordResetOTP,
+} from "@/services/auth";
 
 
 export default function VerifyResetOTPPage() {
@@ -18,7 +21,10 @@ export default function VerifyResetOTPPage() {
     const [email, setEmail] = useState("");
     const [otp, setOTP] = useState("");
     const [loading, setLoading] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(60);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
     useEffect(() => {
         const initializationTimer = window.setTimeout(() => {
@@ -34,6 +40,16 @@ export default function VerifyResetOTPPage() {
             window.clearTimeout(initializationTimer);
         };
     }, [router]);
+
+    useEffect(() => {
+        const cooldownTimer = window.setInterval(() => {
+            setResendCooldown((current) => Math.max(0, current - 1));
+        }, 1000);
+
+        return () => {
+            window.clearInterval(cooldownTimer);
+        };
+    }, []);
 
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>
@@ -58,6 +74,24 @@ export default function VerifyResetOTPPage() {
             );
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleResend() {
+        if (resendLoading || resendCooldown > 0 || !email) return;
+
+        try {
+            setResendLoading(true);
+            setError("");
+            setSuccess("");
+            await requestPasswordReset(email);
+            setOTP("");
+            setResendCooldown(60);
+            setSuccess("If an account exists, a new verification code has been sent.");
+        } catch {
+            setError("Unable to resend the verification code. Please try again later.");
+        } finally {
+            setResendLoading(false);
         }
     }
 
@@ -89,9 +123,23 @@ export default function VerifyResetOTPPage() {
                     </div>
                 </div>
                 {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+                {success && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{success}</div>}
                 <button type="submit" disabled={loading || otp.length !== 6 || !email} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
                     {loading && <Loader2 size={18} className="animate-spin" />}
                     {loading ? "Verifying..." : "Verify code"}
+                </button>
+                <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendLoading || resendCooldown > 0 || !email}
+                    className="inline-flex w-full items-center justify-center gap-2 text-sm font-medium text-blue-600 transition hover:text-blue-700 disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                    {resendLoading && <Loader2 size={16} className="animate-spin" />}
+                    {resendLoading
+                        ? "Resending..."
+                        : resendCooldown > 0
+                            ? `Resend code in ${resendCooldown}s`
+                            : "Resend code"}
                 </button>
             </form>
         </RecoveryShell>
