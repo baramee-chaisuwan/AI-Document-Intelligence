@@ -8,6 +8,7 @@ import {
     Bot,
     BriefcaseBusiness,
     FileDown,
+    Kanban,
     LayoutDashboard,
     Search,
     Sparkles,
@@ -29,6 +30,11 @@ const menuItems = [
         title: "Candidates",
         href: "/candidates",
         icon: Users,
+    },
+    {
+        title: "Pipeline",
+        href: "/pipeline",
+        icon: Kanban,
     },
     {
         title: "Jobs",

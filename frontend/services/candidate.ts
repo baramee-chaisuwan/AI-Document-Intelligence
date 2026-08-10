@@ -17,11 +17,21 @@ export interface ScoreBreakdown {
 }
 
 
+export type CandidateStage = (
+    | "APPLIED"
+    | "SCREENING"
+    | "INTERVIEW"
+    | "OFFER"
+    | "REJECTED"
+);
+
+
 export interface Candidate {
     id: number;
     name: string;
     summary: string;
     candidate_level: string;
+    candidate_stage: CandidateStage;
     skill_score: number;
     rule_score: number;
     ai_score: number;
@@ -172,6 +182,52 @@ export async function updateCandidate(
         }
 
         throw error;
+
+    }
+
+}
+
+
+export async function updateCandidateStage(
+    candidateId: number,
+    candidateStage: CandidateStage
+): Promise<Candidate> {
+
+    try {
+
+        const response = await api.put<Candidate>(
+            `/candidates/${candidateId}/stage`,
+            {
+                candidate_stage: candidateStage,
+            }
+        );
+
+        return response.data;
+
+    } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+
+            switch (error.response?.status) {
+                case 403:
+                    throw new Error(
+                        "You do not have permission to move candidates."
+                    );
+                case 404:
+                    throw new Error(
+                        "This candidate could not be found."
+                    );
+                default:
+                    throw new Error(
+                        "Could not update the candidate stage. Please try again."
+                    );
+            }
+
+        }
+
+        throw new Error(
+            "Could not update the candidate stage. Please try again."
+        );
 
     }
 
