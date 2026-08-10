@@ -66,3 +66,20 @@ class JobResponse(BaseModel):
     extracted_requirements: JobRequirements
     created_by: int
     created_at: datetime
+
+
+class JobMatchScoreBreakdown(BaseModel):
+
+    semantic_score: float
+    required_skill_score: float
+    preferred_skill_score: float
+
+
+class JobCandidateMatchResponse(BaseModel):
+
+    candidate_id: int
+    candidate_name: str
+    match_score: float
+    score_breakdown: JobMatchScoreBreakdown
+    matched_skills: list[str]
+    missing_skills: list[str]

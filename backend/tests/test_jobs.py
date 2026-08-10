@@ -21,9 +21,11 @@ from app.database.database import (
     get_db
 )
 from app.database.models import (
+    Candidate,
     Job,
     User
 )
+from app.repositories import job_match_repository
 from app.services import job_service
 from main import app
 
@@ -250,9 +252,154 @@ def test_job_endpoints_require_authentication(client):
         }
     )
     list_response = client.get("/jobs")
+    match_response = client.post(
+        "/jobs/1/match"
+    )
 
     assert create_response.status_code == 401
     assert list_response.status_code == 401
+    assert match_response.status_code == 401
+
+
+def test_match_job_not_found(
+    client,
+    role_headers
+):
+
+    response = client.post(
+        "/jobs/999/match",
+        headers=role_headers["recruiter"]
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Job not found"
+    }
+
+
+def test_match_legacy_job_without_embedding(
+    client,
+    role_headers
+):
+
+    with TestingSessionLocal() as db:
+        recruiter = (
+            db.query(User)
+            .filter(User.role == "recruiter")
+            .one()
+        )
+        job = Job(
+            title="Legacy job",
+            description="Legacy description",
+            extracted_requirements={},
+            embedding=None,
+            created_by=recruiter.id
+        )
+        db.add(job)
+        db.commit()
+        job_id = job.id
+
+    response = client.post(
+        f"/jobs/{job_id}/match",
+        headers=role_headers["recruiter"]
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Job embedding is unavailable"
+    }
+
+
+@pytest.mark.parametrize(
+    "role",
+    ["admin", "recruiter"]
+)
+def test_staff_can_match_job(
+    client,
+    role_headers,
+    monkeypatch,
+    role
+):
+
+    with TestingSessionLocal() as db:
+        user = (
+            db.query(User)
+            .filter(User.role == role)
+            .one()
+        )
+        job = Job(
+            title="Backend Engineer",
+            description="Build APIs",
+            extracted_requirements={
+                "required_skills": ["Python"],
+                "preferred_skills": []
+            },
+            embedding=[0.25] * 384,
+            created_by=user.id
+        )
+        db.add(job)
+        db.commit()
+        job_id = job.id
+
+    monkeypatch.setattr(
+        job_match_repository,
+        "get_candidate_match_data",
+        lambda db, job_embedding: []
+    )
+
+    response = client.post(
+        f"/jobs/{job_id}/match",
+        headers=role_headers[role]
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_candidate_without_resume_chunks_is_excluded(
+    client,
+    role_headers,
+    monkeypatch
+):
+
+    with TestingSessionLocal() as db:
+        recruiter = (
+            db.query(User)
+            .filter(User.role == "recruiter")
+            .one()
+        )
+        job = Job(
+            title="Backend Engineer",
+            description="Build APIs",
+            extracted_requirements={
+                "required_skills": ["Python"],
+                "preferred_skills": []
+            },
+            embedding=[0.25] * 384,
+            created_by=recruiter.id
+        )
+        candidate = Candidate(
+            name="Candidate without chunks",
+            summary="No indexed resume",
+            candidate_level="Junior"
+        )
+        db.add_all([job, candidate])
+        db.commit()
+        job_id = job.id
+
+    monkeypatch.setattr(
+        job_match_repository,
+        "get_candidate_match_data",
+        lambda db, job_embedding: []
+    )
+
+    response = client.post(
+        f"/jobs/{job_id}/match",
+        headers=role_headers["recruiter"]
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_extraction_failure_does_not_persist_job(

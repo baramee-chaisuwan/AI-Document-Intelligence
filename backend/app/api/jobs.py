@@ -13,10 +13,14 @@ from app.api.dependencies import (
 from app.database.database import get_db
 from app.database.models import User
 from app.models.job_model import (
+    JobCandidateMatchResponse,
     JobCreateRequest,
     JobResponse
 )
-from app.services import job_service
+from app.services import (
+    job_matching_service,
+    job_service
+)
 
 
 router = APIRouter(
@@ -69,3 +73,26 @@ def get_jobs(
 ):
 
     return job_service.get_jobs(db)
+
+
+@router.post(
+    "/{job_id:int}/match",
+    dependencies=[
+        Depends(get_current_staff_user)
+    ],
+    response_model=list[
+        JobCandidateMatchResponse
+    ]
+)
+def match_job_candidates(
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+
+    return (
+        job_matching_service
+        .match_job_candidates(
+            db,
+            job_id
+        )
+    )
