@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    func,
     Index,
     Integer,
     JSON,
@@ -23,6 +24,10 @@ from app.database.database import Base
 from app.models.candidate_stage import (
     CANDIDATE_STAGE_CHECK_SQL,
     CandidateStage
+)
+from app.models.processing_job_status import (
+    PROCESSING_JOB_STATUS_CHECK_SQL,
+    ProcessingJobStatus
 )
 
 
@@ -316,6 +321,88 @@ class Candidate(Base):
         back_populates="candidate",
         cascade="all, delete-orphan",
         passive_deletes=True
+    )
+
+    processing_jobs = relationship(
+        "ResumeProcessingJob",
+        back_populates="candidate",
+        passive_deletes=True
+    )
+
+
+class ResumeProcessingJob(Base):
+
+    __tablename__ = "resume_processing_jobs"
+
+    __table_args__ = (
+        CheckConstraint(
+            PROCESSING_JOB_STATUS_CHECK_SQL,
+            name=(
+                "ck_resume_processing_jobs_status"
+            )
+        ),
+        Index(
+            "ix_resume_processing_jobs_status_created_at",
+            "status",
+            "created_at"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    candidate_id = Column(
+        Integer,
+        ForeignKey(
+            "candidates.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True,
+        index=True
+    )
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default=ProcessingJobStatus.PENDING.value,
+        server_default=ProcessingJobStatus.PENDING.value
+    )
+
+    error_message = Column(
+        Text,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now()
+    )
+
+    started_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.now()
+    )
+
+    candidate = relationship(
+        "Candidate",
+        back_populates="processing_jobs"
     )
 
 

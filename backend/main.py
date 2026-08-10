@@ -61,6 +61,9 @@ from app.api.auth import (
 from app.api.jobs import (
     router as jobs_router
 )
+from app.api.processing_jobs import (
+    router as processing_jobs_router
+)
 
 
 logging.basicConfig(
@@ -211,6 +214,10 @@ app.include_router(
 
 app.include_router(
     jobs_router
+)
+
+app.include_router(
+    processing_jobs_router
 )
 
 app.include_router(
