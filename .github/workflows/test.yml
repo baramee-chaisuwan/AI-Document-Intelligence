@@ -185,6 +185,10 @@ jobs:
 
       CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
 
+      CLOUD_SQL_INSTANCE: project-f332596d-3e50-409b-914:asia-southeast1:ats-postgres
+
+      DATABASE_URL_SECRET: ${{ vars.GCP_DATABASE_URL_SECRET }}
+
       IMAGE_NAME: ats-api
 
       IMAGE_TAG: ${{ github.sha }}
@@ -244,6 +248,124 @@ jobs:
         run: |
 
           docker push "${IMAGE_URI}"
+
+
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+
+          python-version: "3.13"
+
+          cache: pip
+
+          cache-dependency-path: backend/requirements.txt
+
+
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: |
+
+          python -m pip install --upgrade pip
+
+          pip install -r requirements.txt
+
+
+
+      - name: Install Cloud SQL Auth Proxy
+        env:
+
+          CLOUD_SQL_PROXY_VERSION: "2.22.0"
+
+        run: |
+
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/cloud-sql-proxy" \
+            "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+
+          chmod +x "${RUNNER_TEMP}/cloud-sql-proxy"
+
+
+
+      - name: Run Production Database Migration
+        working-directory: backend
+        run: |
+
+          set -euo pipefail
+
+          if [ -z "${DATABASE_URL_SECRET}" ]; then
+            echo "GCP_DATABASE_URL_SECRET repository variable is required"
+            exit 1
+          fi
+
+          "${RUNNER_TEMP}/cloud-sql-proxy" \
+            --address 127.0.0.1 \
+            --port 5432 \
+            "${CLOUD_SQL_INSTANCE}" \
+            > "${RUNNER_TEMP}/cloud-sql-proxy.log" 2>&1 &
+
+          PROXY_PID=$!
+          trap 'kill "${PROXY_PID}" 2>/dev/null || true' EXIT
+
+          for attempt in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null; then
+              break
+            fi
+
+            if ! kill -0 "${PROXY_PID}" 2>/dev/null; then
+              echo "Cloud SQL Auth Proxy stopped before becoming ready"
+              exit 1
+            fi
+
+            if [ "${attempt}" -eq 30 ]; then
+              echo "Cloud SQL Auth Proxy did not become ready"
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          PRODUCTION_DATABASE_URL="$(gcloud secrets versions access latest \
+            --project="${PROJECT_ID}" \
+            --secret="${DATABASE_URL_SECRET}")"
+          export PRODUCTION_DATABASE_URL
+
+          python - <<'PY'
+          import os
+          import subprocess
+
+          from sqlalchemy.engine import make_url
+
+
+          database_url = make_url(os.environ["PRODUCTION_DATABASE_URL"])
+          query = dict(database_url.query)
+          query.pop("host", None)
+          proxy_url = database_url.set(
+              host="127.0.0.1",
+              port=5432,
+              query=query,
+          )
+
+          migration_env = os.environ.copy()
+          migration_env["DATABASE_URL"] = proxy_url.render_as_string(
+              hide_password=False
+          )
+          migration_env.pop("PRODUCTION_DATABASE_URL", None)
+
+          subprocess.run(
+              ["python", "-m", "alembic", "upgrade", "head"],
+              check=True,
+              env=migration_env,
+          )
+          subprocess.run(
+              ["python", "-m", "alembic", "current"],
+              check=True,
+              env=migration_env,
+          )
+          PY
+
+          unset PRODUCTION_DATABASE_URL
 
 
 
