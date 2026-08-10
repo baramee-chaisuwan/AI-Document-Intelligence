@@ -101,6 +101,11 @@ class User(Base):
         passive_deletes=True
     )
 
+    jobs = relationship(
+        "Job",
+        back_populates="creator"
+    )
+
 
 class PasswordResetToken(Base):
 
@@ -144,6 +149,63 @@ class PasswordResetToken(Base):
     user = relationship(
         "User",
         back_populates="password_reset_tokens"
+    )
+
+
+def empty_job_requirements():
+
+    return {
+        "required_skills": [],
+        "preferred_skills": [],
+        "experience_requirements": [],
+        "responsibilities": []
+    }
+
+
+class Job(Base):
+
+    __tablename__ = "jobs"
+
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    title = Column(
+        String(255),
+        nullable=False
+    )
+
+    description = Column(
+        Text,
+        nullable=False
+    )
+
+    extracted_requirements = Column(
+        JSON,
+        nullable=False,
+        default=empty_job_requirements
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now
+    )
+
+    creator = relationship(
+        "User",
+        back_populates="jobs"
     )
 
 
