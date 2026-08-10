@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
     BarChart3,
     Bot,
+    BriefcaseBusiness,
     FileDown,
     LayoutDashboard,
     Search,
@@ -28,6 +29,11 @@ const menuItems = [
         title: "Candidates",
         href: "/candidates",
         icon: Users,
+    },
+    {
+        title: "Jobs",
+        href: "/jobs",
+        icon: BriefcaseBusiness,
     },
     {
         title: "Upload Resume",
