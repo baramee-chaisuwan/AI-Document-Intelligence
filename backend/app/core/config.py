@@ -116,3 +116,11 @@ GCS_KEY_PREFIX = os.getenv(
     "GCS_KEY_PREFIX",
     "resumes"
 )
+
+GCP_PROJECT_ID = os.getenv(
+    "GCP_PROJECT_ID"
+)
+
+PUBSUB_RESUME_PROCESSING_TOPIC = os.getenv(
+    "PUBSUB_RESUME_PROCESSING_TOPIC"
+)

@@ -35,6 +35,16 @@ def get_processing_job_by_id(
     )
 
 
+def associate_candidate(
+    db: Session,
+    job: ResumeProcessingJob,
+    candidate_id: int
+) -> None:
+
+    job.candidate_id = candidate_id
+    db.add(job)
+
+
 def transition_processing_job(
     db: Session,
     job_id: int,

@@ -230,6 +230,50 @@ def delete_object(
         ) from error
 
 
+def get_object(
+    object_key: str
+) -> bytes:
+    """Download one private object under the configured prefix."""
+
+    bucket_name, prefix = _validated_storage_config()
+    safe_object_key = _validate_object_key(
+        object_key,
+        prefix
+    )
+
+    try:
+
+        bucket = get_storage_client().bucket(
+            bucket_name
+        )
+        blob = bucket.blob(
+            safe_object_key
+        )
+        content = blob.download_as_bytes()
+
+    except NotFound as error:
+
+        raise GCSOperationError(
+            "GCS download failed (404)"
+        ) from error
+
+    except (
+        GoogleAuthError,
+        GoogleAPIError
+    ) as error:
+
+        raise GCSOperationError(
+            _operation_error_message(
+                "download",
+                error
+            )
+        ) from error
+
+    return _validate_content(
+        content
+    )
+
+
 def _validated_storage_config() -> tuple[str, str]:
 
     bucket = (

@@ -405,3 +405,65 @@ def test_delete_object_wraps_gcs_error(
         )
 
     assert "503" in str(exc_info.value)
+
+
+def test_get_object_downloads_private_content(
+    monkeypatch
+):
+
+    client = Mock()
+    bucket = Mock()
+    blob = Mock()
+    blob.download_as_bytes.return_value = (
+        b"%PDF-1.7 test"
+    )
+    client.bucket.return_value = bucket
+    bucket.blob.return_value = blob
+    monkeypatch.setattr(
+        gcs_storage_service,
+        "_storage_client",
+        client
+    )
+
+    content = gcs_storage_service.get_object(
+        "resumes/42/document.pdf"
+    )
+
+    assert content == b"%PDF-1.7 test"
+    client.bucket.assert_called_once_with(
+        "ats-resumes-test"
+    )
+    bucket.blob.assert_called_once_with(
+        "resumes/42/document.pdf"
+    )
+    blob.download_as_bytes.assert_called_once_with()
+
+
+def test_get_object_wraps_missing_object_safely(
+    monkeypatch
+):
+
+    client = Mock()
+    bucket = Mock()
+    blob = Mock()
+    blob.download_as_bytes.side_effect = NotFound(
+        "private provider detail"
+    )
+    client.bucket.return_value = bucket
+    bucket.blob.return_value = blob
+    monkeypatch.setattr(
+        gcs_storage_service,
+        "_storage_client",
+        client
+    )
+
+    with pytest.raises(
+        gcs_storage_service.GCSOperationError
+    ) as exc_info:
+        gcs_storage_service.get_object(
+            "resumes/42/document.pdf"
+        )
+
+    assert "private provider detail" not in str(
+        exc_info.value
+    )
