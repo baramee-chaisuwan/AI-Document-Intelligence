@@ -33,7 +33,7 @@ RUN python -m pip install \
 COPY app ./app
 COPY alembic ./alembic
 COPY scripts ./scripts
-COPY alembic.ini main.py ./
+COPY alembic.ini main.py worker_main.py ./
 
 RUN mkdir -p \
         /app/.cache/huggingface \
