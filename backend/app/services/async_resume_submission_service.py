@@ -13,6 +13,13 @@ from app.services import (
     processing_job_service,
     pubsub_publisher_service
 )
+from app.services.resume_fingerprint_service import (
+    DuplicateResumeError,
+    ResumeFingerprintReservationError,
+    calculate_resume_sha256,
+    release_resume_fingerprint,
+    reserve_resume_fingerprint
+)
 from app.services.gcs_storage_service import (
     GCSStorageError,
     StoredGCSObject
@@ -36,6 +43,28 @@ def submit_resume(
 ):
 
     submission_id = f"async-{uuid.uuid4().hex}"
+    resume_sha256 = calculate_resume_sha256(
+        content
+    )
+
+    try:
+        processing_job = reserve_resume_fingerprint(
+            db,
+            resume_sha256
+        )
+    except DuplicateResumeError:
+        raise
+    except (
+        SQLAlchemyError,
+        ResumeFingerprintReservationError
+    ) as error:
+        db.rollback()
+        logger.exception(
+            "Resume fingerprint reservation failed"
+        )
+        raise AsyncResumeSubmissionError(
+            "Async resume submission is unavailable"
+        ) from error
 
     try:
         stored_resume = gcs_storage_service.put_object(
@@ -47,23 +76,10 @@ def submit_resume(
         logger.exception(
             "Async resume GCS upload failed"
         )
-        raise AsyncResumeSubmissionError(
-            "Async resume submission is unavailable"
-        ) from error
-
-    try:
-        processing_job = (
-            processing_job_service
-            .create_processing_job(db)
-        )
-    except SQLAlchemyError as error:
-        db.rollback()
-        logger.exception(
-            "Processing job creation failed after GCS upload"
-        )
-        _delete_stored_resume(
-            stored_resume,
-            context="processing job creation failure"
+        _release_reservation_safely(
+            db,
+            processing_job.id,
+            context="GCS upload failure"
         )
         raise AsyncResumeSubmissionError(
             "Async resume submission is unavailable"
@@ -153,4 +169,25 @@ def _delete_stored_resume(
         logger.exception(
             "GCS compensation failed after %s",
             context
+        )
+
+
+def _release_reservation_safely(
+    db: Session,
+    processing_job_id: int,
+    *,
+    context: str
+) -> None:
+
+    try:
+        release_resume_fingerprint(
+            db,
+            processing_job_id
+        )
+    except ResumeFingerprintReservationError:
+        logger.exception(
+            "Fingerprint reservation compensation failed "
+            "after %s: job_id=%s",
+            context,
+            processing_job_id
         )

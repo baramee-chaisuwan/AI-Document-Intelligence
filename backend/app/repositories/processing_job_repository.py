@@ -7,11 +7,13 @@ from app.database.models import ResumeProcessingJob
 
 def create_processing_job(
     db: Session,
-    candidate_id: int | None = None
+    candidate_id: int | None = None,
+    resume_sha256: str | None = None
 ) -> ResumeProcessingJob:
 
     job = ResumeProcessingJob(
-        candidate_id=candidate_id
+        candidate_id=candidate_id,
+        resume_sha256=resume_sha256
     )
 
     db.add(job)
@@ -30,6 +32,21 @@ def get_processing_job_by_id(
         db.query(ResumeProcessingJob)
         .filter(
             ResumeProcessingJob.id == job_id
+        )
+        .first()
+    )
+
+
+def get_processing_job_by_resume_sha256(
+    db: Session,
+    resume_sha256: str
+) -> ResumeProcessingJob | None:
+
+    return (
+        db.query(ResumeProcessingJob)
+        .filter(
+            ResumeProcessingJob.resume_sha256
+            == resume_sha256
         )
         .first()
     )
@@ -68,7 +85,16 @@ def associate_candidate(
 ) -> None:
 
     job.candidate_id = candidate_id
+    job.resume_sha256 = None
     db.add(job)
+
+
+def prepare_delete_processing_job(
+    db: Session,
+    job: ResumeProcessingJob
+) -> None:
+
+    db.delete(job)
 
 
 def transition_processing_job(
@@ -87,6 +113,9 @@ def transition_processing_job(
         "updated_at": transitioned_at,
         "error_message": error_message,
     }
+
+    if next_status in {"COMPLETED", "FAILED"}:
+        values["resume_sha256"] = None
 
     if started_at is not None:
         values["started_at"] = started_at

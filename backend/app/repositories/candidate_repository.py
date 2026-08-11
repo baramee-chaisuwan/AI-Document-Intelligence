@@ -30,6 +30,19 @@ def get_candidate_by_id(
         .first()
     )
 
+
+def get_candidate_by_resume_sha256(
+    db: Session,
+    resume_sha256: str
+):
+    return (
+        db.query(Candidate)
+        .filter(
+            Candidate.resume_sha256 == resume_sha256
+        )
+        .first()
+    )
+
 def delete_candidate(
     db: Session,
     candidate: Candidate

@@ -245,13 +245,58 @@ def test_same_filename_uses_unique_storage_identity(
         Mock(return_value="message-id")
     )
 
-    first = post_async_resume(client, recruiter_headers)
-    second = post_async_resume(client, recruiter_headers)
+    first = post_async_resume(
+        client,
+        recruiter_headers,
+        content=b"%PDF-1.7\nfirst resume"
+    )
+    second = post_async_resume(
+        client,
+        recruiter_headers,
+        content=b"%PDF-1.7\nchanged resume"
+    )
 
     assert first.status_code == 202
     assert second.status_code == 202
     assert len(document_ids) == 2
     assert document_ids[0] != document_ids[1]
+
+
+def test_exact_pending_duplicate_is_rejected_without_new_work(
+    client,
+    recruiter_headers,
+    monkeypatch
+):
+
+    put_object = Mock(return_value=stored_resume())
+    publish = Mock(return_value="message-id")
+    monkeypatch.setattr(
+        async_resume_submission_service.gcs_storage_service,
+        "put_object",
+        put_object
+    )
+    monkeypatch.setattr(
+        async_resume_submission_service.pubsub_publisher_service,
+        "publish_resume_processing_message",
+        publish
+    )
+
+    first = post_async_resume(client, recruiter_headers)
+    duplicate = post_async_resume(client, recruiter_headers)
+
+    assert first.status_code == 202
+    assert duplicate.status_code == 409
+    assert duplicate.json() == {
+        "status": "duplicate",
+        "message": "This exact resume file already exists",
+        "candidate_id": None
+    }
+    assert put_object.call_count == 1
+    assert publish.call_count == 1
+
+    with TestingSessionLocal() as db:
+        assert db.query(ResumeProcessingJob).count() == 1
+        assert db.query(Candidate).count() == 0
 
 
 @pytest.mark.parametrize(
@@ -373,23 +418,18 @@ def test_gcs_failure_creates_no_job_or_message(
         assert db.query(ResumeProcessingJob).count() == 0
 
 
-def test_job_creation_failure_cleans_up_object_without_publish(
+def test_job_creation_failure_occurs_before_upload_or_publish(
     client,
     recruiter_headers,
     monkeypatch
 ):
 
-    delete_object = Mock()
+    put_object = Mock(return_value=stored_resume())
     publish = Mock()
     monkeypatch.setattr(
         async_resume_submission_service.gcs_storage_service,
         "put_object",
-        Mock(return_value=stored_resume())
-    )
-    monkeypatch.setattr(
-        async_resume_submission_service.gcs_storage_service,
-        "delete_object",
-        delete_object
+        put_object
     )
     monkeypatch.setattr(
         async_resume_submission_service.processing_job_service,
@@ -408,7 +448,7 @@ def test_job_creation_failure_cleans_up_object_without_publish(
     )
 
     assert response.status_code == 503
-    delete_object.assert_called_once_with(stored_resume().key)
+    put_object.assert_not_called()
     publish.assert_not_called()
     with TestingSessionLocal() as db:
         assert db.query(ResumeProcessingJob).count() == 0

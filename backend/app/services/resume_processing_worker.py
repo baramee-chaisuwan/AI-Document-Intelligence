@@ -22,7 +22,8 @@ from app.services import (
     gemini_service,
     indexing_service,
     pdf_service,
-    processing_job_service
+    processing_job_service,
+    resume_fingerprint_service
 )
 
 
@@ -123,6 +124,16 @@ def handle_resume_processing_message(
             db,
             message.gcs_object_key
         )
+
+        if (
+            claimed_job.resume_sha256 is not None
+            and candidate.resume_sha256
+            != claimed_job.resume_sha256
+        ):
+            raise ResumeWorkerError(
+                "Resume fingerprint does not match its reservation"
+            )
+
         processing_job_repository.associate_candidate(
             db,
             claimed_job,
@@ -181,6 +192,12 @@ def process_resume_from_gcs(
     file_bytes = gcs_storage_service.get_object(
         object_key
     )
+    resume_sha256 = (
+        resume_fingerprint_service
+        .calculate_resume_sha256(
+            file_bytes
+        )
+    )
     extracted_text = pdf_service.extract_text_from_pdf(
         file_bytes
     )
@@ -220,7 +237,8 @@ def process_resume_from_gcs(
         ai_score=int(round(analysis["ai_score"])),
         ai_status=str(analysis["ai_status"]),
         score_breakdown=analysis["score_breakdown"],
-        resume_storage_key=object_key
+        resume_storage_key=object_key,
+        resume_sha256=resume_sha256
     )
 
     if not candidate.summary:

@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+import hashlib
 
 import pytest
 from sqlalchemy import create_engine
@@ -539,6 +540,9 @@ def test_default_processor_reuses_existing_services(
         assert candidate.resume_storage_key == (
             "resumes/input/document.pdf"
         )
+        assert candidate.resume_sha256 == hashlib.sha256(
+            b"%PDF-1.7 test"
+        ).hexdigest()
         get_object.assert_called_once_with(
             "resumes/input/document.pdf"
         )
@@ -555,3 +559,62 @@ def test_default_processor_reuses_existing_services(
             document_id=candidate.id,
             resume_text="Resume text"
         )
+
+
+def test_candidate_uniqueness_conflict_leaves_no_partial_worker_data():
+
+    resume_sha256 = "a" * 64
+
+    def conflicting_processor(db, object_key):
+        candidate = Candidate(
+            name="Duplicate Candidate",
+            summary="Duplicate",
+            candidate_level="Senior",
+            skill_score=90,
+            rule_score=90,
+            ai_score=90,
+            ai_status="success",
+            score_breakdown={},
+            resume_storage_key=object_key,
+            resume_sha256=resume_sha256
+        )
+        db.add(candidate)
+        db.flush()
+        return candidate
+
+    with TestingSessionLocal() as db:
+        existing = Candidate(
+            name="Existing Candidate",
+            summary="Existing",
+            candidate_level="Senior",
+            skill_score=95,
+            rule_score=95,
+            ai_score=95,
+            ai_status="success",
+            score_breakdown={},
+            resume_sha256=resume_sha256
+        )
+        db.add(existing)
+        db.commit()
+
+        job = processing_job_service.create_processing_job(
+            db,
+            resume_sha256=resume_sha256
+        )
+
+        with pytest.raises(ResumeWorkerError):
+            (
+                resume_processing_worker
+                .handle_resume_processing_message(
+                    db,
+                    message(job.id),
+                    processor=conflicting_processor
+                )
+            )
+
+        persisted_job = db.get(ResumeProcessingJob, job.id)
+        assert persisted_job.status == "FAILED"
+        assert persisted_job.candidate_id is None
+        assert persisted_job.resume_sha256 is None
+        assert db.query(Candidate).count() == 1
+        assert db.query(ResumeChunk).count() == 0

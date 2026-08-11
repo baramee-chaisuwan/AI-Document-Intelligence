@@ -1,4 +1,5 @@
 import os
+import hashlib
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -164,9 +165,18 @@ def test_upload_resume(
 
     with (
         patch(
-            "app.api.upload.check_duplicate",
-            return_value=None
-        ) as mock_duplicate,
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "reserve_resume_fingerprint"
+            ),
+            return_value=MagicMock(id=700)
+        ) as mock_reserve,
+        patch(
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "prepare_reservation_completion"
+            )
+        ) as mock_prepare,
         patch(
             "app.api.upload.extract_text_from_pdf",
             return_value="resume text"
@@ -244,10 +254,14 @@ def test_upload_resume(
     assert data["analysis"]["rule_score"] == 89
     assert data["analysis"]["ai_score"] == 95
 
-    mock_duplicate.assert_called_once_with(
+    expected_sha256 = hashlib.sha256(
+        fake_pdf
+    ).hexdigest()
+    mock_reserve.assert_called_once_with(
         mock_db,
-        "Baramee Chaisuwan"
+        expected_sha256
     )
+    mock_prepare.assert_called_once()
 
     mock_pdf.assert_called_once()
     mock_summary.assert_called_once_with(
@@ -278,6 +292,7 @@ def test_upload_resume(
         == "resumes/123/resume-hash.pdf"
     )
     assert candidate.resume_filename == "resume.pdf"
+    assert candidate.resume_sha256 == expected_sha256
 
     mock_store.assert_called_once_with(
         document_id=123,
@@ -322,7 +337,29 @@ def _post_resume_with_mocked_pipeline(
 
     with (
         patch(
-            "app.api.upload.check_duplicate",
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "reserve_resume_fingerprint"
+            ),
+            return_value=MagicMock(id=701)
+        ),
+        patch(
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "prepare_reservation_completion"
+            )
+        ) as mock_prepare,
+        patch(
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "release_resume_fingerprint"
+            )
+        ) as mock_release,
+        patch(
+            (
+                "app.api.upload.resume_fingerprint_service."
+                "get_existing_candidate"
+            ),
             return_value=None
         ),
         patch(
@@ -372,6 +409,8 @@ def _post_resume_with_mocked_pipeline(
         "store": mock_store,
         "delete": mock_delete,
         "index": mock_index,
+        "prepare": mock_prepare,
+        "release": mock_release,
         "file_bytes": fake_pdf
     }
 

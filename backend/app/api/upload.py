@@ -5,8 +5,12 @@ from fastapi import (
     HTTPException,
     Depends
 )
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import (
+    IntegrityError,
+    SQLAlchemyError
+)
 from typing import Union
 import logging
 import os
@@ -18,6 +22,9 @@ from app.models.resume_model import (
     ResumeResponse,
     DuplicateResponse
 )
+from app.models.processing_job_model import (
+    ExactDuplicateResumeResponse
+)
 
 from app.database.database import get_db
 from app.database.models import Candidate
@@ -26,6 +33,11 @@ from app.services.gcs_storage_service import (
 )
 from app.services.indexing_service import (
     ResumeIndexingError
+)
+from app.services import resume_fingerprint_service
+from app.services.resume_fingerprint_service import (
+    DuplicateResumeError,
+    ResumeFingerprintReservationError
 )
 
 
@@ -120,17 +132,6 @@ def delete_stored_resume(
 
     return delete_object(
         object_key
-    )
-
-def check_duplicate(
-    db,
-    name: str
-):
-
-    return (
-        db.query(Candidate)
-        .filter(Candidate.name == name)
-        .first()
     )
 
 def validate_file(
@@ -332,8 +333,14 @@ def validate_analysis(
     ],
     response_model=Union[
         ResumeResponse,
-        DuplicateResponse
-    ]
+        DuplicateResponse,
+        ExactDuplicateResumeResponse
+    ],
+    responses={
+        409: {
+            "model": ExactDuplicateResumeResponse
+        }
+    }
 )
 def upload_document(
     file: UploadFile = File(...),
@@ -346,6 +353,8 @@ def upload_document(
 
     file_bytes = None
     extracted_text = None
+    reservation_job = None
+    resume_sha256 = None
 
     try:
 
@@ -358,6 +367,38 @@ def upload_document(
             file,
             file_bytes
         )
+
+        resume_sha256 = (
+            resume_fingerprint_service
+            .calculate_resume_sha256(
+                file_bytes
+            )
+        )
+
+        try:
+            reservation_job = (
+                resume_fingerprint_service
+                .reserve_resume_fingerprint(
+                    db,
+                    resume_sha256
+                )
+            )
+        except DuplicateResumeError as error:
+            return _exact_duplicate_response(
+                error.candidate_id
+            )
+        except (
+            SQLAlchemyError,
+            ResumeFingerprintReservationError
+        ) as error:
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Resume duplicate check "
+                    "could not be completed"
+                )
+            ) from error
 
 
         try:
@@ -426,22 +467,6 @@ def upload_document(
         )
 
 
-        existing = check_duplicate(
-            db,
-            candidate_name
-        )
-
-        if existing:
-
-            return DuplicateResponse(
-                status="duplicate",
-                message=(
-                    "Candidate already exists"
-                ),
-                existing_id=existing.id,
-                filename=filename
-            )
-
         try:
 
             summary = summarize_document(
@@ -506,7 +531,8 @@ def upload_document(
                 analysis[
                     "score_breakdown"
                 ]
-            )
+            ),
+            resume_sha256=resume_sha256
         )
 
         stored_resume = None
@@ -539,7 +565,16 @@ def upload_document(
                 )
             )
 
+            (
+                resume_fingerprint_service
+                .prepare_reservation_completion(
+                    db,
+                    reservation_job
+                )
+            )
+
             db.commit()
+            reservation_job = None
 
         except GCSStorageError as error:
 
@@ -569,6 +604,33 @@ def upload_document(
                     "service is unavailable"
                 )
             ) from error
+
+        except IntegrityError as error:
+
+            db.rollback()
+
+            _compensate_resume_upload(
+                stored_resume,
+                candidate.id
+            )
+
+            existing_candidate = (
+                resume_fingerprint_service
+                .get_existing_candidate(
+                    db,
+                    resume_sha256
+                )
+            )
+
+            if existing_candidate is None:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Candidate could not be saved"
+                ) from error
+
+            return _exact_duplicate_response(
+                existing_candidate.id
+            )
 
         except SQLAlchemyError as error:
 
@@ -600,6 +662,12 @@ def upload_document(
         )
 
     finally:
+
+        if reservation_job is not None:
+            _release_fingerprint_reservation(
+                db,
+                reservation_job.id
+            )
 
         try:
 
@@ -633,3 +701,36 @@ def _compensate_resume_upload(
             "candidate_id=%s",
             candidate_id
         )
+
+
+def _release_fingerprint_reservation(
+    db: Session,
+    processing_job_id: int
+):
+
+    try:
+        resume_fingerprint_service.release_resume_fingerprint(
+            db,
+            processing_job_id
+        )
+    except ResumeFingerprintReservationError:
+        logger.exception(
+            "Resume fingerprint reservation cleanup failed: "
+            "job_id=%s",
+            processing_job_id
+        )
+
+
+def _exact_duplicate_response(
+    candidate_id: int | None
+):
+
+    duplicate = ExactDuplicateResumeResponse(
+        message="This exact resume file already exists",
+        candidate_id=candidate_id
+    )
+
+    return JSONResponse(
+        status_code=409,
+        content=duplicate.model_dump()
+    )

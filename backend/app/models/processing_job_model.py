@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 from app.models.processing_job_status import (
@@ -27,3 +29,10 @@ class AsyncResumeSubmissionResponse(BaseModel):
 
     processing_job_id: int
     status: ProcessingJobStatus
+
+
+class ExactDuplicateResumeResponse(BaseModel):
+
+    status: Literal["duplicate"] = "duplicate"
+    message: str
+    candidate_id: int | None

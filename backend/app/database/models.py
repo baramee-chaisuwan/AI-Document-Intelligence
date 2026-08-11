@@ -15,6 +15,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    text,
     UniqueConstraint
 )
 from sqlalchemy.orm import relationship
@@ -232,6 +233,25 @@ class Candidate(Base):
             CANDIDATE_STAGE_CHECK_SQL,
             name="ck_candidates_candidate_stage"
         ),
+        CheckConstraint(
+            (
+                "resume_sha256 IS NULL OR "
+                "(length(resume_sha256) = 64 AND "
+                "resume_sha256 = lower(resume_sha256))"
+            ),
+            name="ck_candidates_resume_sha256_format"
+        ),
+        Index(
+            "ux_candidates_resume_sha256",
+            "resume_sha256",
+            unique=True,
+            postgresql_where=text(
+                "resume_sha256 IS NOT NULL"
+            ),
+            sqlite_where=text(
+                "resume_sha256 IS NOT NULL"
+            )
+        ),
     )
 
     id = Column(
@@ -303,6 +323,11 @@ class Candidate(Base):
         nullable=True
     )
 
+    resume_sha256 = Column(
+        String(64),
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         nullable=False,
@@ -341,10 +366,32 @@ class ResumeProcessingJob(Base):
                 "ck_resume_processing_jobs_status"
             )
         ),
+        CheckConstraint(
+            (
+                "resume_sha256 IS NULL OR "
+                "(length(resume_sha256) = 64 AND "
+                "resume_sha256 = lower(resume_sha256))"
+            ),
+            name=(
+                "ck_resume_processing_jobs_"
+                "resume_sha256_format"
+            )
+        ),
         Index(
             "ix_resume_processing_jobs_status_created_at",
             "status",
             "created_at"
+        ),
+        Index(
+            "ux_resume_processing_jobs_resume_sha256",
+            "resume_sha256",
+            unique=True,
+            postgresql_where=text(
+                "resume_sha256 IS NOT NULL"
+            ),
+            sqlite_where=text(
+                "resume_sha256 IS NOT NULL"
+            )
         ),
     )
 
@@ -372,6 +419,11 @@ class ResumeProcessingJob(Base):
 
     error_message = Column(
         Text,
+        nullable=True
+    )
+
+    resume_sha256 = Column(
+        String(64),
         nullable=True
     )
 

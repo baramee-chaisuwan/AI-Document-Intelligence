@@ -176,6 +176,10 @@ def test_processing_job_model_schema_contract():
         if isinstance(constraint, CheckConstraint)
     }
     assert "ck_resume_processing_jobs_status" in constraints
+    assert (
+        "ck_resume_processing_jobs_resume_sha256_format"
+        in constraints
+    )
 
     indexes = {
         index.name: index
@@ -184,7 +188,8 @@ def test_processing_job_model_schema_contract():
     }
     assert set(indexes) == {
         "ix_resume_processing_jobs_candidate_id",
-        "ix_resume_processing_jobs_status_created_at"
+        "ix_resume_processing_jobs_status_created_at",
+        "ux_resume_processing_jobs_resume_sha256"
     }
 
 
@@ -227,6 +232,7 @@ def test_processing_job_creation_defaults_to_pending():
         assert job.status == ProcessingJobStatus.PENDING.value
         assert job.candidate_id is None
         assert job.error_message is None
+        assert job.resume_sha256 is None
         assert job.started_at is None
         assert job.completed_at is None
         assert job.created_at is not None
