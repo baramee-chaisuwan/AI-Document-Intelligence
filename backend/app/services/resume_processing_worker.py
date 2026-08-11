@@ -114,6 +114,7 @@ def handle_resume_processing_message(
         raise
 
     claimed_job_id = claimed_job.id
+    reservation_sha256 = claimed_job.resume_sha256
     resume_processor = (
         processor
         or process_resume_from_gcs
@@ -126,19 +127,23 @@ def handle_resume_processing_message(
         )
 
         if (
-            claimed_job.resume_sha256 is not None
+            reservation_sha256 is not None
             and candidate.resume_sha256
-            != claimed_job.resume_sha256
+            != reservation_sha256
         ):
             raise ResumeWorkerError(
                 "Resume fingerprint does not match its reservation"
             )
+
+        if reservation_sha256 is not None:
+            candidate.resume_sha256 = reservation_sha256
 
         processing_job_repository.associate_candidate(
             db,
             claimed_job,
             candidate.id
         )
+        db.flush()
         completed_job = (
             processing_job_service
             .transition_processing_job(

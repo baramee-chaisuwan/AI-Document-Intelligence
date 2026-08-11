@@ -22,6 +22,7 @@ from app.models.resume_processing_message import (
 )
 from app.services import (
     processing_job_service,
+    resume_fingerprint_service,
     resume_processing_worker
 )
 from app.repositories import processing_job_repository
@@ -71,7 +72,10 @@ def message(job_id: int) -> dict:
     }
 
 
-def candidate_processor(call_counter=None):
+def candidate_processor(
+    call_counter=None,
+    resume_sha256=None
+):
 
     def process(db, object_key):
 
@@ -87,7 +91,8 @@ def candidate_processor(call_counter=None):
             ai_score=92,
             ai_status="success",
             score_breakdown={},
-            resume_storage_key=object_key
+            resume_storage_key=object_key,
+            resume_sha256=resume_sha256
         )
         db.add(candidate)
         db.flush()
@@ -146,10 +151,73 @@ def test_pending_job_processes_and_associates_candidate():
         assert commit.call_count == 2
 
 
+def test_completion_persists_fingerprint_ownership_transfer():
+
+    resume_sha256 = "a" * 64
+
+    def fingerprinted_processor(db, object_key):
+        candidate = Candidate(
+            name="Fingerprint Candidate",
+            summary="Backend engineer",
+            candidate_level="Senior",
+            skill_score=90,
+            rule_score=88,
+            ai_score=92,
+            ai_status="success",
+            score_breakdown={},
+            resume_storage_key=object_key,
+            resume_sha256=resume_sha256
+        )
+        db.add(candidate)
+        db.flush()
+        return candidate
+
+    with TestingSessionLocal() as db:
+        job = processing_job_service.create_processing_job(
+            db,
+            resume_sha256=resume_sha256
+        )
+        job_id = job.id
+        result = (
+            resume_processing_worker
+            .handle_resume_processing_message(
+                db,
+                message(job_id),
+                processor=fingerprinted_processor
+            )
+        )
+        candidate_id = result.candidate_id
+
+    with TestingSessionLocal() as verification_db:
+        persisted_job = verification_db.get(
+            ResumeProcessingJob,
+            job_id
+        )
+        persisted_candidate = verification_db.get(
+            Candidate,
+            candidate_id
+        )
+
+        assert persisted_job.status == "COMPLETED"
+        assert persisted_job.candidate_id == candidate_id
+        assert persisted_job.resume_sha256 is None
+        assert persisted_candidate.resume_sha256 == resume_sha256
+
+        duplicate_candidate = (
+            resume_fingerprint_service
+            .get_existing_candidate(
+                verification_db,
+                resume_sha256
+            )
+        )
+        assert duplicate_candidate.id == candidate_id
+
+
 def test_failure_after_association_flush_rolls_back_candidate_data(
     monkeypatch
 ):
 
+    resume_sha256 = "b" * 64
     associate_candidate = (
         processing_job_repository.associate_candidate
     )
@@ -166,7 +234,10 @@ def test_failure_after_association_flush_rolls_back_candidate_data(
     )
 
     with TestingSessionLocal() as db:
-        job = processing_job_service.create_processing_job(db)
+        job = processing_job_service.create_processing_job(
+            db,
+            resume_sha256=resume_sha256
+        )
 
         with pytest.raises(ResumeWorkerError):
             (
@@ -174,13 +245,16 @@ def test_failure_after_association_flush_rolls_back_candidate_data(
                 .handle_resume_processing_message(
                     db,
                     message(job.id),
-                    processor=candidate_processor()
+                    processor=candidate_processor(
+                        resume_sha256=resume_sha256
+                    )
                 )
             )
 
         persisted_job = db.get(ResumeProcessingJob, job.id)
         assert persisted_job.status == "FAILED"
         assert persisted_job.candidate_id is None
+        assert persisted_job.resume_sha256 is None
         assert db.query(Candidate).count() == 0
         assert db.query(ResumeChunk).count() == 0
 
