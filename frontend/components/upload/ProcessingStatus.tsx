@@ -15,6 +15,7 @@ export type UploadProgressState = (
     | "queued"
     | "processing"
     | "completed"
+    | "duplicate"
     | "failed"
     | "polling_error"
     | "timed_out"
@@ -44,6 +45,7 @@ const PROGRESS_INDEX: Record<UploadProgressState, number> = {
     queued: 1,
     processing: 2,
     completed: 3,
+    duplicate: -1,
     failed: -1,
     polling_error: -1,
     timed_out: -1,
@@ -64,6 +66,7 @@ export default function ProcessingStatus({
 
     const currentIndex = PROGRESS_INDEX[state];
     const isFailure = state === "failed";
+    const isDuplicate = state === "duplicate";
     const canRetryPolling = (
         state === "polling_error"
         || state === "timed_out"
@@ -113,14 +116,18 @@ export default function ProcessingStatus({
                 className={`mt-4 flex items-start gap-3 rounded-lg border p-4 ${
                     isFailure
                         ? "border-red-200 bg-red-50 text-red-700"
-                        : state === "completed"
-                            ? "border-green-200 bg-green-50 text-green-700"
-                            : canRetryPolling
-                                ? "border-amber-200 bg-amber-50 text-amber-800"
-                                : "border-blue-200 bg-blue-50 text-blue-700"
+                        : isDuplicate
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : state === "completed"
+                                ? "border-green-200 bg-green-50 text-green-700"
+                                : canRetryPolling
+                                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
                 }`}
             >
                 {isFailure ? (
+                    <AlertCircle className="mt-0.5 shrink-0" size={20} />
+                ) : isDuplicate ? (
                     <AlertCircle className="mt-0.5 shrink-0" size={20} />
                 ) : state === "completed" ? (
                     <CheckCircle2 className="mt-0.5 shrink-0" size={20} />
@@ -149,6 +156,22 @@ export default function ProcessingStatus({
                         >
                             View Candidate
                         </Link>
+                    )}
+
+                    {isDuplicate && candidateId !== null && (
+                        <Link
+                            href={`/candidates/${candidateId}`}
+                            className="mt-4 inline-flex rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+                        >
+                            View Existing Candidate
+                        </Link>
+                    )}
+
+                    {isDuplicate && candidateId === null && (
+                        <p className="mt-2 text-sm">
+                            This resume is already being processed. Select
+                            another file to continue.
+                        </p>
                     )}
 
                     {canRetryPolling && (

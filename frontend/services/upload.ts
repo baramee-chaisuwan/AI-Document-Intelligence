@@ -17,6 +17,13 @@ export interface AsyncResumeSubmissionResponse {
 }
 
 
+export interface ExactDuplicateResumeResponse {
+    status: "duplicate";
+    message: string;
+    candidate_id: number | null;
+}
+
+
 export interface ProcessingJob {
     id: number;
     candidate_id: number | null;
@@ -40,6 +47,18 @@ export class ResumeUploadApiError extends Error {
         super(message);
         this.name = "ResumeUploadApiError";
         this.status = status;
+    }
+}
+
+
+export class DuplicateResumeUploadError extends ResumeUploadApiError {
+
+    candidateId: number | null;
+
+    constructor(candidateId: number | null) {
+        super("This exact resume has already been uploaded.", 409);
+        this.name = "DuplicateResumeUploadError";
+        this.candidateId = candidateId;
     }
 }
 
@@ -143,6 +162,16 @@ function throwUploadApiError(
     }
 
     if (axios.isAxiosError(error)) {
+        if (error.response?.status === 409) {
+            const duplicate = parseDuplicateResponse(
+                error.response.data
+            );
+
+            throw new DuplicateResumeUploadError(
+                duplicate?.candidate_id ?? null
+            );
+        }
+
         const detail = error.response?.data?.detail;
 
         throw new ResumeUploadApiError(
@@ -156,4 +185,41 @@ function throwUploadApiError(
     throw new ResumeUploadApiError(
         fallbackMessage
     );
+}
+
+
+function parseDuplicateResponse(
+    value: unknown
+): ExactDuplicateResumeResponse | null {
+
+    if (
+        typeof value !== "object"
+        || value === null
+        || !("status" in value)
+        || value.status !== "duplicate"
+        || !("message" in value)
+        || typeof value.message !== "string"
+        || !("candidate_id" in value)
+    ) {
+        return null;
+    }
+
+    const candidateId = value.candidate_id;
+
+    if (
+        candidateId !== null
+        && (
+            typeof candidateId !== "number"
+            || !Number.isInteger(candidateId)
+            || candidateId <= 0
+        )
+    ) {
+        return null;
+    }
+
+    return {
+        status: "duplicate",
+        message: value.message,
+        candidate_id: candidateId,
+    };
 }

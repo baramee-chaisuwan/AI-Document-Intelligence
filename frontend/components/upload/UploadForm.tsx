@@ -19,6 +19,7 @@ import ProcessingStatus, {
     UploadProgressState,
 } from "@/components/upload/ProcessingStatus";
 import {
+    DuplicateResumeUploadError,
     getProcessingJob,
     ResumeUploadApiError,
     uploadResumeAsync,
@@ -63,6 +64,10 @@ export default function UploadForm() {
         || progressState === "processing"
         || progressState === "polling_error"
         || progressState === "timed_out"
+    );
+    const uploadBlocked = (
+        processingActive
+        || progressState === "duplicate"
     );
 
     function stopPolling() {
@@ -275,7 +280,7 @@ export default function UploadForm() {
     }
 
     async function handleUpload() {
-        if (submissionInFlightRef.current || processingActive) {
+        if (submissionInFlightRef.current || uploadBlocked) {
             return;
         }
 
@@ -312,6 +317,15 @@ export default function UploadForm() {
             setMessage("Queued for AI processing.");
             void pollProcessingJob(result.processing_job_id);
         } catch (error) {
+            if (error instanceof DuplicateResumeUploadError) {
+                stopPolling();
+                setProcessingJobId(null);
+                setCandidateId(error.candidateId);
+                setProgressState("duplicate");
+                setMessage(error.message);
+                return;
+            }
+
             setProgressState("failed");
             setMessage(
                 error instanceof Error
@@ -434,7 +448,7 @@ export default function UploadForm() {
             <button
                 type="button"
                 onClick={handleUpload}
-                disabled={submitting || processingActive || !file}
+                disabled={submitting || uploadBlocked || !file}
                 className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 {submitting ? (
