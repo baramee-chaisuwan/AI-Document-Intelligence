@@ -185,6 +185,8 @@ jobs:
 
       CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
 
+      WORKER_CLOUD_RUN_SERVICE: ats-worker
+
       CLOUD_SQL_INSTANCE: project-f332596d-3e50-409b-914:asia-southeast1:ats-postgres
 
       DATABASE_URL_SECRET: ${{ vars.GCP_DATABASE_URL_SECRET }}
@@ -369,7 +371,7 @@ jobs:
 
 
 
-      - name: Deploy Cloud Run
+      - name: Deploy API Cloud Run
         run: |
 
           gcloud run deploy "${CLOUD_RUN_SERVICE}" \
@@ -377,6 +379,39 @@ jobs:
             --region="${REGION}" \
             --image="${IMAGE_URI}" \
             --quiet
+
+
+
+      - name: Deploy Worker Cloud Run
+        run: |
+
+          gcloud run services update "${WORKER_CLOUD_RUN_SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --image="${IMAGE_URI}" \
+            --quiet
+
+
+
+      - name: Verify API and Worker Images Match
+        run: |
+
+          API_IMAGE=$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --format="value(spec.template.spec.containers[0].image)")
+
+          WORKER_IMAGE=$(gcloud run services describe "${WORKER_CLOUD_RUN_SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --format="value(spec.template.spec.containers[0].image)")
+
+          if [ -z "${API_IMAGE}" ] || [ "${API_IMAGE}" != "${WORKER_IMAGE}" ]; then
+            echo "API and worker image verification failed"
+            exit 1
+          fi
+
+          echo "API and worker use the same backend image"
 
 
 
