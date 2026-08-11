@@ -37,6 +37,9 @@ from app.api.health import (
 from app.api.upload import (
     router as upload_router
 )
+from app.api.async_upload import (
+    router as async_upload_router
+)
 from app.api.candidate import (
     router as candidate_router
 )
@@ -222,6 +225,10 @@ app.include_router(
 
 app.include_router(
     upload_router
+)
+
+app.include_router(
+    async_upload_router
 )
 
 app.include_router(

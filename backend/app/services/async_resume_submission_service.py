@@ -1,0 +1,156 @@
+import logging
+import uuid
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.models.resume_processing_message import (
+    ResumeProcessingMessageError,
+    validate_resume_processing_message
+)
+from app.services import (
+    gcs_storage_service,
+    processing_job_service,
+    pubsub_publisher_service
+)
+from app.services.gcs_storage_service import (
+    GCSStorageError,
+    StoredGCSObject
+)
+from app.services.pubsub_publisher_service import (
+    PubSubPublisherError
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+class AsyncResumeSubmissionError(RuntimeError):
+    """Raised when an async resume cannot be safely queued."""
+
+
+def submit_resume(
+    db: Session,
+    filename: str,
+    content: bytes
+):
+
+    submission_id = f"async-{uuid.uuid4().hex}"
+
+    try:
+        stored_resume = gcs_storage_service.put_object(
+            document_id=submission_id,
+            filename=filename,
+            content=content
+        )
+    except GCSStorageError as error:
+        logger.exception(
+            "Async resume GCS upload failed"
+        )
+        raise AsyncResumeSubmissionError(
+            "Async resume submission is unavailable"
+        ) from error
+
+    try:
+        processing_job = (
+            processing_job_service
+            .create_processing_job(db)
+        )
+    except SQLAlchemyError as error:
+        db.rollback()
+        logger.exception(
+            "Processing job creation failed after GCS upload"
+        )
+        _delete_stored_resume(
+            stored_resume,
+            context="processing job creation failure"
+        )
+        raise AsyncResumeSubmissionError(
+            "Async resume submission is unavailable"
+        ) from error
+
+    try:
+        message = validate_resume_processing_message({
+            "version": 1,
+            "processing_job_id": processing_job.id,
+            "gcs_object_key": stored_resume.key
+        })
+        (
+            pubsub_publisher_service
+            .publish_resume_processing_message(
+                message
+            )
+        )
+    except (
+        PubSubPublisherError,
+        ResumeProcessingMessageError
+    ) as error:
+        logger.exception(
+            "Resume processing message publication failed: "
+            "job_id=%s",
+            processing_job.id
+        )
+        _compensate_publication_failure(
+            db,
+            processing_job.id,
+            stored_resume
+        )
+        raise AsyncResumeSubmissionError(
+            "Async resume submission is unavailable"
+        ) from error
+
+    return processing_job
+
+
+def _compensate_publication_failure(
+    db: Session,
+    processing_job_id: int,
+    stored_resume: StoredGCSObject
+) -> None:
+
+    try:
+        job_deleted = (
+            processing_job_service
+            .delete_pending_processing_job(
+                db,
+                processing_job_id
+            )
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception(
+            "Pending processing job compensation failed: "
+            "job_id=%s",
+            processing_job_id
+        )
+        return
+
+    if not job_deleted:
+        logger.error(
+            "Pending processing job was not eligible for "
+            "publication compensation: job_id=%s",
+            processing_job_id
+        )
+        return
+
+    _delete_stored_resume(
+        stored_resume,
+        context="message publication failure"
+    )
+
+
+def _delete_stored_resume(
+    stored_resume: StoredGCSObject,
+    *,
+    context: str
+) -> None:
+
+    try:
+        gcs_storage_service.delete_object(
+            stored_resume.key
+        )
+    except GCSStorageError:
+        logger.exception(
+            "GCS compensation failed after %s",
+            context
+        )

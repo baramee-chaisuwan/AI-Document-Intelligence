@@ -35,6 +35,32 @@ def get_processing_job_by_id(
     )
 
 
+def delete_pending_processing_job(
+    db: Session,
+    job_id: int
+) -> bool:
+
+    deleted_count = (
+        db.query(ResumeProcessingJob)
+        .filter(
+            ResumeProcessingJob.id == job_id,
+            ResumeProcessingJob.status == "PENDING",
+            ResumeProcessingJob.candidate_id.is_(None)
+        )
+        .delete(
+            synchronize_session=False
+        )
+    )
+
+    if deleted_count != 1:
+        db.rollback()
+        return False
+
+    db.commit()
+
+    return True
+
+
 def associate_candidate(
     db: Session,
     job: ResumeProcessingJob,

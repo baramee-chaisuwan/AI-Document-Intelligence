@@ -59,6 +59,20 @@ def get_processing_job(
     return job
 
 
+def delete_pending_processing_job(
+    db: Session,
+    job_id: int
+) -> bool:
+
+    return (
+        processing_job_repository
+        .delete_pending_processing_job(
+            db,
+            job_id
+        )
+    )
+
+
 def transition_processing_job(
     db: Session,
     job_id: int,

@@ -21,3 +21,9 @@ class ResumeProcessingJobResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     updated_at: datetime
+
+
+class AsyncResumeSubmissionResponse(BaseModel):
+
+    processing_job_id: int
+    status: ProcessingJobStatus
