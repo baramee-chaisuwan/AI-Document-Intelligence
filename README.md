@@ -185,7 +185,7 @@ flowchart LR
 
 ## Architecture Diagram
 
-![Architecture Diagram](assets/screenshots/architecture.png)
+![Architecture Diagram](assets/screenshots/architectureV2.png)
 
 
 The service layer calls out to **Gemini 2.5 Flash** for extraction and
