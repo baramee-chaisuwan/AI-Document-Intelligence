@@ -15,6 +15,7 @@ from app.api.upload import (
     validate_file
 )
 from app.database.database import get_db
+from app.database.models import User
 from app.models.processing_job_model import (
     AsyncResumeSubmissionResponse,
     ExactDuplicateResumeResponse
@@ -36,9 +37,6 @@ router = APIRouter(
 
 @router.post(
     "/async",
-    dependencies=[
-        Depends(get_current_staff_user)
-    ],
     response_model=AsyncResumeSubmissionResponse,
     responses={
         status.HTTP_409_CONFLICT: {
@@ -50,6 +48,7 @@ router = APIRouter(
 )
 def upload_document_async(
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
 
@@ -66,7 +65,8 @@ def upload_document_async(
             processing_job = submit_resume(
                 db,
                 (file.filename or "").strip(),
-                file_bytes
+                file_bytes,
+                requested_by=current_user.id
             )
         except DuplicateResumeError as error:
             duplicate = ExactDuplicateResumeResponse(

@@ -24,6 +24,7 @@ from app.services import (
     indexing_service,
     pdf_service,
     processing_job_service,
+    notification_service,
     resume_fingerprint_service
 )
 from app.services.observability_service import (
@@ -139,6 +140,7 @@ def handle_resume_processing_message(
         raise
 
     claimed_job_id = claimed_job.id
+    requested_by = claimed_job.requested_by
     reservation_sha256 = claimed_job.resume_sha256
     emit_event(
         "resume_worker_started",
@@ -201,6 +203,13 @@ def handle_resume_processing_message(
             candidate_id=completed_job.candidate_id
         )
 
+        notification_service.notify_resume_completed_safely(
+            db,
+            user_id=requested_by,
+            processing_job_id=completed_job.id,
+            candidate_id=completed_job.candidate_id
+        )
+
         return result
 
     except Exception as error:
@@ -218,7 +227,7 @@ def handle_resume_processing_message(
         )
 
         try:
-            processing_job_service.transition_processing_job(
+            failed_job = processing_job_service.transition_processing_job(
                 db,
                 claimed_job_id,
                 ProcessingJobStatus.FAILED,
@@ -226,6 +235,11 @@ def handle_resume_processing_message(
                     processing_job_service
                     .DEFAULT_PROCESSING_ERROR
                 )
+            )
+            notification_service.notify_resume_failed_safely(
+                db,
+                user_id=requested_by,
+                processing_job_id=failed_job.id
             )
         except Exception as transition_error:
             emit_event(

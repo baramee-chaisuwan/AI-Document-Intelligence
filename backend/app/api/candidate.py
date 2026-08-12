@@ -7,6 +7,7 @@ from app.api.dependencies import (
     get_current_user
 )
 from app.database.database import get_db
+from app.database.models import User
 from app.models.candidate_model import CandidateResponse, RankingResponse
 from app.models.candidate_stats_model import CandidateStatsResponse
 from app.models.candidate_update_model import (
@@ -132,9 +133,6 @@ def update_candidate(
 
 @router.put(
     "/{candidate_id:int}/stage",
-    dependencies=[
-        Depends(get_current_staff_user)
-    ],
     response_model=CandidateResponse,
     summary="Update candidate pipeline stage",
     description=(
@@ -144,12 +142,14 @@ def update_candidate(
 def update_candidate_stage(
     candidate_id: int,
     data: CandidateStageUpdate,
+    current_user: User = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     return candidate_service.update_candidate_stage(
         db,
         candidate_id,
-        data.candidate_stage
+        data.candidate_stage,
+        current_user.id
     )
     
 @router.get(

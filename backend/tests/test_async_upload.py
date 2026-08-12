@@ -192,6 +192,7 @@ def test_async_submission_stores_job_and_publishes_once(
         assert len(jobs) == 1
         assert jobs[0].status == "PENDING"
         assert jobs[0].candidate_id is None
+        assert jobs[0].requested_by is not None
         assert db.query(Candidate).count() == 0
 
     upload_call = put_object.call_args.kwargs

@@ -32,6 +32,9 @@ from app.models.processing_job_status import (
     PROCESSING_JOB_STATUS_CHECK_SQL,
     ProcessingJobStatus
 )
+from app.models.notification_type import (
+    NOTIFICATION_TYPE_CHECK_SQL
+)
 
 
 def utc_now():
@@ -116,6 +119,18 @@ class User(Base):
     jobs = relationship(
         "Job",
         back_populates="creator"
+    )
+
+    notifications = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    requested_processing_jobs = relationship(
+        "ResumeProcessingJob",
+        back_populates="requester"
     )
 
 
@@ -413,6 +428,16 @@ class ResumeProcessingJob(Base):
         index=True
     )
 
+    requested_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True,
+        index=True
+    )
+
     status = Column(
         String(20),
         nullable=False,
@@ -458,6 +483,66 @@ class ResumeProcessingJob(Base):
     candidate = relationship(
         "Candidate",
         back_populates="processing_jobs"
+    )
+
+    requester = relationship(
+        "User",
+        back_populates="requested_processing_jobs"
+    )
+
+
+class Notification(Base):
+
+    __tablename__ = "notifications"
+
+    __table_args__ = (
+        CheckConstraint(
+            NOTIFICATION_TYPE_CHECK_SQL,
+            name="ck_notifications_type"
+        ),
+        Index(
+            "ix_notifications_user_read_created",
+            "user_id",
+            "is_read",
+            "created_at"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    type = Column(String(50), nullable=False)
+    title = Column(String(120), nullable=False)
+    message = Column(String(500), nullable=False)
+    candidate_id = Column(
+        Integer,
+        ForeignKey("candidates.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    event_key = Column(
+        String(255),
+        nullable=True,
+        unique=True
+    )
+    is_read = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now()
+    )
+
+    user = relationship(
+        "User",
+        back_populates="notifications"
     )
 
 

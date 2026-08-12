@@ -7,6 +7,7 @@ from app.core.exceptions import NotFoundError
 from app.models.candidate_stage import CandidateStage
 from app.models.candidate_update_model import CandidateUpdate
 from app.repositories import candidate_repository
+from app.services import notification_service
 
 from app.services.gcs_storage_service import (
     GCSStorageError,
@@ -170,7 +171,8 @@ def get_candidate_by_id(
 def update_candidate_stage(
     db: Session,
     candidate_id: int,
-    candidate_stage: CandidateStage
+    candidate_stage: CandidateStage,
+    user_id: int
 ):
 
     candidate = candidate_repository.get_candidate_by_id(
@@ -181,8 +183,20 @@ def update_candidate_stage(
     if not candidate:
         raise NotFoundError("Candidate not found")
 
-    return candidate_repository.update_candidate_stage(
+    previous_stage = candidate.candidate_stage
+    updated_candidate = candidate_repository.update_candidate_stage(
         db,
         candidate,
         candidate_stage.value
     )
+
+    if previous_stage != candidate_stage.value:
+        notification_service.notify_candidate_stage_changed_safely(
+            db,
+            user_id=user_id,
+            candidate_id=updated_candidate.id,
+            candidate_name=updated_candidate.name,
+            candidate_stage=candidate_stage.value
+        )
+
+    return updated_candidate

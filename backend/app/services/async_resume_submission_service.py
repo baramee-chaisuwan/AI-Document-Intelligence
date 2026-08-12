@@ -44,7 +44,8 @@ class AsyncResumeSubmissionError(RuntimeError):
 def submit_resume(
     db: Session,
     filename: str,
-    content: bytes
+    content: bytes,
+    requested_by: int
 ):
 
     started_at = time.perf_counter()
@@ -56,7 +57,8 @@ def submit_resume(
     try:
         processing_job = reserve_resume_fingerprint(
             db,
-            resume_sha256
+            resume_sha256,
+            requested_by=requested_by
         )
     except DuplicateResumeError as error:
         emit_event(

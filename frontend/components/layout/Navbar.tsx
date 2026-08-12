@@ -1,13 +1,13 @@
 "use client";
 
 import {
-    Bell,
     LogOut,
     Menu,
     ShieldCheck,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 
 type NavbarProps = {
@@ -128,23 +128,7 @@ export default function Navbar({
                 "
             >
 
-                <button
-                    type="button"
-                    className="
-                        rounded-full
-                        p-2
-                        transition
-                        hover:bg-gray-100
-                    "
-                    aria-label="Notifications"
-                >
-
-                    <Bell
-                        size={20}
-                        className="text-gray-600"
-                    />
-
-                </button>
+                <NotificationBell />
 
 
                 <div

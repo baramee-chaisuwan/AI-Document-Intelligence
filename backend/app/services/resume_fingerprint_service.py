@@ -37,7 +37,8 @@ def calculate_resume_sha256(content: bytes) -> str:
 
 def reserve_resume_fingerprint(
     db: Session,
-    resume_sha256: str
+    resume_sha256: str,
+    requested_by: int | None = None
 ):
 
     _validate_resume_sha256(resume_sha256)
@@ -56,7 +57,8 @@ def reserve_resume_fingerprint(
             processing_job_service
             .create_processing_job(
                 db,
-                resume_sha256=resume_sha256
+                resume_sha256=resume_sha256,
+                requested_by=requested_by
             )
         )
     except IntegrityError as error:

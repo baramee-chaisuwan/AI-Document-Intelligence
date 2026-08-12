@@ -30,13 +30,15 @@ VALID_TRANSITIONS = {
 def create_processing_job(
     db: Session,
     candidate_id: int | None = None,
-    resume_sha256: str | None = None
+    resume_sha256: str | None = None,
+    requested_by: int | None = None
 ) -> ResumeProcessingJob:
 
     return processing_job_repository.create_processing_job(
         db,
         candidate_id,
-        resume_sha256
+        resume_sha256,
+        requested_by
     )
 
 

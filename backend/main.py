@@ -74,6 +74,9 @@ from app.api.processing_jobs import (
 from app.api.rag_evaluations import (
     router as rag_evaluations_router
 )
+from app.api.notifications import (
+    router as notifications_router
+)
 
 
 logging.basicConfig(
@@ -238,6 +241,10 @@ app.include_router(
 
 app.include_router(
     rag_evaluations_router
+)
+
+app.include_router(
+    notifications_router
 )
 
 app.include_router(

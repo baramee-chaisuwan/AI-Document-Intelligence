@@ -154,6 +154,13 @@ def test_processing_job_model_schema_contract():
     )
     assert candidate_foreign_key.ondelete == "SET NULL"
 
+    assert columns.requested_by.nullable is True
+    requester_foreign_key = next(
+        iter(columns.requested_by.foreign_keys)
+    )
+    assert requester_foreign_key.target_fullname == "users.id"
+    assert requester_foreign_key.ondelete == "SET NULL"
+
     assert isinstance(columns.status.type, String)
     assert columns.status.type.length == 20
     assert columns.status.nullable is False
@@ -188,6 +195,7 @@ def test_processing_job_model_schema_contract():
     }
     assert set(indexes) == {
         "ix_resume_processing_jobs_candidate_id",
+        "ix_resume_processing_jobs_requested_by",
         "ix_resume_processing_jobs_status_created_at",
         "ux_resume_processing_jobs_resume_sha256"
     }
