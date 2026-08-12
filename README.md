@@ -130,6 +130,9 @@ Designed and implemented the full AI application stack, end to end:
   candidate pipeline.
 - **Exact-file deduplication** — SHA-256 reservations prevent the same resume
   from being processed twice, including while its first upload is still active.
+- **Persisted in-app notifications** — PostgreSQL-backed, user-scoped alerts
+  report resume completion/failure and candidate pipeline changes through the
+  existing authenticated Next.js header bell.
 - **Observable and evaluable RAG** — structured Cloud Logging events, persisted
   retrieval/answer records, staff-entered quality feedback, and a reviewable
   monitoring setup for critical production signals.
@@ -181,6 +184,8 @@ flowchart LR
     API --> GEM
     API --> RAG["Hybrid retrieval<br/>pgvector + BM25 + RRF"]
     RAG --> DB
+    DB -->|User-scoped notifications| API
+    API -->|Authenticated notification API| FE
 ```
 
 ## Architecture Diagram
@@ -211,7 +216,7 @@ sequenceDiagram
 
     F->>A: POST /upload/async (PDF)
     A->>A: Validate size, extension, PDF signature, SHA-256
-    A->>D: Reserve fingerprint + create PENDING job
+    A->>D: Reserve fingerprint + create owned PENDING job
     A->>G: Store private PDF
     A->>P: Publish versioned processing message
     A-->>F: 202 + processing_job_id
@@ -221,6 +226,7 @@ sequenceDiagram
     W->>G: Read exact object
     W->>W: Extract, analyze, score, chunk, embed
     W->>D: Commit Candidate + chunks + association + COMPLETED
+    W->>D: Persist uploader's completion notification
     A-->>F: COMPLETED + candidate_id
 ```
 
@@ -231,6 +237,30 @@ ResumeChunk, processing-job association, and `COMPLETED` are committed together.
 On processing failure those uncommitted records roll back and the durable job is
 marked `FAILED`. GCS, Pub/Sub, and PostgreSQL do not share a distributed
 transaction, so submission paths use explicit compensation where possible.
+The authenticated uploader's user ID is carried on the processing job so the
+worker can notify the correct user after terminal completion or failure.
+Legacy jobs without known ownership do not create broadcast/shared
+notifications.
+
+### In-app notification flow
+
+```text
+Resume terminal event or candidate stage change
+  -> PostgreSQL notifications row
+  -> Authenticated /notifications API scoped to the current user
+  -> Next.js header bell and notification dropdown
+```
+
+Supported events are resume processing completed, resume processing failed,
+and candidate pipeline stage changed. The bell shows an unread badge, loads the
+latest notifications on authenticated render and when opened, refreshes at a
+lightweight interval, and supports marking one or all notifications as read.
+Candidate-linked notifications navigate directly to Candidate detail.
+
+Stable worker event keys prevent duplicate terminal notifications from
+duplicate Pub/Sub delivery. Notification persistence is best-effort and safely
+logged, so a notification failure cannot roll back an already successful main
+business operation.
 
 ### RAG flow
 
@@ -272,7 +302,11 @@ The production schema includes:
 - **Job** — recruiter-authored job text, Gemini-extracted structured
   requirements, and its matching embedding.
 - **ResumeProcessingJob** — durable async status, timestamps, safe failure
-  text, fingerprint reservation, and eventual Candidate association.
+  text, fingerprint reservation, eventual Candidate association, and nullable
+  `requested_by` ownership used for uploader notifications.
+- **Notification** — user-scoped in-app event metadata, optional Candidate
+  reference, read state, timestamp, and an optional stable event key used to
+  deduplicate worker terminal events.
 - **PasswordResetToken** — hashed OTP challenge state, failed attempts,
   verification, invalidation, and single-use consumption timestamps.
 - **RAGEvaluation** — minimized RAG interaction metadata plus optional human
@@ -308,7 +342,8 @@ Next.js 16 (App Router) with React 19 and TypeScript. Pages live in
 provided at the root layout via `AuthProvider` / `AuthGate`. Key routes cover
 login/register/password recovery, dashboard, candidate list/detail, async
 upload progress, pipeline, job management/matching, semantic search, the RAG
-assistant, recommendations, and admin-only CSV export.
+assistant, recommendations, admin-only CSV export, and a persisted notification
+bell with read/unread state and Candidate navigation.
 
 ## AI engineering
 
@@ -387,6 +422,9 @@ version 1 dataset, current measured baseline, and update procedure.
 | `POST` | `/upload/` | Ingest and index a PDF resume | Staff |
 | `POST` | `/upload/async` | Queue durable asynchronous resume processing | Staff |
 | `GET` | `/processing-jobs/{id}` | Read async processing status | Authenticated |
+| `GET` | `/notifications` | List current user's latest notifications and unread count | Authenticated |
+| `PATCH` | `/notifications/{id}/read` | Mark one owned notification as read | Authenticated |
+| `PATCH` | `/notifications/read-all` | Mark all current user's notifications as read | Authenticated |
 | `POST` | `/search/` | Semantic candidate search | Staff |
 | `POST` | `/assistant/` | Ask the RAG assistant | Staff |
 | `POST` | `/recommend/` | Recommend a candidate for a job requirement | Staff |
@@ -560,6 +598,9 @@ supporting evidence instead of the model inventing one.
 - RAG evaluation deliberately stores user queries and generated answers but
   strips full chunks and sensitive retrieval metadata. Production retention
   and access policies must reflect that queries/answers can still contain PII.
+- Notification queries and read mutations are always filtered by the
+  authenticated user. Async jobs without a known uploader do not generate a
+  shared or broadcast notification.
 - The frontend uses tab-scoped `sessionStorage` because the current backend
   returns bearer tokens in JSON. This limits persistence but is still exposed
   to successful same-origin XSS; a future cookie-based design would require a
@@ -704,7 +745,8 @@ The suite covers:
 - **Integration tests**: authentication, real JWT/RBAC enforcement,
   password-reset OTP lifecycle and token invalidation,
   candidate CRUD, upload orchestration, semantic and hybrid retrieval,
-  assistant/recommendation behavior, CSV export, and the admin CLI
+  assistant/recommendation behavior, notification isolation/event handling,
+  CSV export, and the admin CLI
 - **Database migration validation**: tests run against a real
   pgvector-enabled PostgreSQL instance with Alembic migrations applied,
   not a mocked database
@@ -792,7 +834,8 @@ AI-Document-Intelligence/
 - [ ] Preview and deliberately apply the monitoring script, attach a tested
   notification channel, and review expected observability costs.
 - [ ] Smoke-test login, async upload/status, duplicate response, Candidate
-  detail, job matching, pipeline movement, RAG assistant, and admin-only paths.
+  detail, job matching, pipeline movement, RAG assistant, notification bell
+  unread/read behavior and Candidate navigation, and admin-only paths.
 
 ## Known limitations
 
