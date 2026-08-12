@@ -248,6 +248,10 @@ def test_rag_evaluation_model_and_migration_contract(monkeypatch):
         "total_latency_ms",
         "retrieved_count",
         "operation",
+        "retrieval_rating",
+        "answer_rating",
+        "feedback_note",
+        "evaluated_at",
         "created_at"
     }
 

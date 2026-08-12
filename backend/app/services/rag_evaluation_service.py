@@ -3,7 +3,11 @@ import math
 
 from sqlalchemy.orm import Session
 
-from app.database.models import RAGEvaluation
+from app.core.exceptions import NotFoundError
+from app.database.models import RAGEvaluation, utc_now
+from app.models.rag_evaluation_model import (
+    RAGEvaluationFeedbackRequest
+)
 from app.repositories import rag_evaluation_repository
 from app.services.observability_service import emit_event
 
@@ -12,6 +16,40 @@ ALLOWED_OPERATIONS = {
     "assistant",
     "recommendation"
 }
+
+
+def update_evaluation_feedback(
+    db: Session,
+    evaluation_id: int,
+    feedback: RAGEvaluationFeedbackRequest
+) -> RAGEvaluation:
+
+    evaluation = (
+        rag_evaluation_repository
+        .get_rag_evaluation_by_id(
+            db,
+            evaluation_id
+        )
+    )
+
+    if evaluation is None:
+        raise NotFoundError(
+            "RAG evaluation not found"
+        )
+
+    return (
+        rag_evaluation_repository
+        .update_rag_evaluation_feedback(
+            db,
+            evaluation,
+            retrieval_rating=(
+                feedback.retrieval_rating
+            ),
+            answer_rating=feedback.answer_rating,
+            feedback_note=feedback.feedback_note,
+            evaluated_at=utc_now()
+        )
+    )
 
 
 def persist_evaluation_safely(

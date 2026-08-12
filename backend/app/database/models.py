@@ -554,6 +554,20 @@ class RAGEvaluation(Base):
             ),
             name="ck_rag_evaluations_nonnegative_latency"
         ),
+        CheckConstraint(
+            (
+                "retrieval_rating IS NULL OR "
+                "retrieval_rating BETWEEN 1 AND 5"
+            ),
+            name="ck_rag_evaluations_retrieval_rating"
+        ),
+        CheckConstraint(
+            (
+                "answer_rating IS NULL OR "
+                "answer_rating BETWEEN 1 AND 5"
+            ),
+            name="ck_rag_evaluations_answer_rating"
+        ),
         Index(
             "ix_rag_evaluations_created_at",
             "created_at"
@@ -605,6 +619,26 @@ class RAGEvaluation(Base):
     operation = Column(
         String(20),
         nullable=False
+    )
+
+    retrieval_rating = Column(
+        Integer,
+        nullable=True
+    )
+
+    answer_rating = Column(
+        Integer,
+        nullable=True
+    )
+
+    feedback_note = Column(
+        String(1000),
+        nullable=True
+    )
+
+    evaluated_at = Column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     created_at = Column(

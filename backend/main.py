@@ -71,6 +71,9 @@ from app.api.jobs import (
 from app.api.processing_jobs import (
     router as processing_jobs_router
 )
+from app.api.rag_evaluations import (
+    router as rag_evaluations_router
+)
 
 
 logging.basicConfig(
@@ -189,6 +192,7 @@ app.add_middleware(
     allow_methods=[
         "GET",
         "POST",
+        "PATCH",
         "PUT",
         "DELETE",
         "OPTIONS"
@@ -230,6 +234,10 @@ app.include_router(
 
 app.include_router(
     processing_jobs_router
+)
+
+app.include_router(
+    rag_evaluations_router
 )
 
 app.include_router(
