@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
@@ -24,6 +25,11 @@ from app.services import (
     pdf_service,
     processing_job_service,
     resume_fingerprint_service
+)
+from app.services.observability_service import (
+    duration_ms,
+    emit_event,
+    service_name
 )
 
 
@@ -62,6 +68,7 @@ def handle_resume_processing_message(
     processor: ResumeProcessor | None = None
 ) -> ResumeWorkerResult:
 
+    started_at = time.perf_counter()
     message = parse_resume_processing_message(
         payload
     )
@@ -80,6 +87,15 @@ def handle_resume_processing_message(
     )
 
     if duplicate_result:
+        emit_event(
+            "resume_worker_noop",
+            service=service_name("ats-worker"),
+            operation="resume_processing",
+            outcome=duplicate_result.outcome.value,
+            duration_ms=duration_ms(started_at),
+            processing_job_id=job.id,
+            candidate_id=job.candidate_id
+        )
         return duplicate_result
 
     try:
@@ -109,12 +125,28 @@ def handle_resume_processing_message(
         )
 
         if duplicate_result:
+            emit_event(
+                "resume_worker_noop",
+                service=service_name("ats-worker"),
+                operation="resume_processing",
+                outcome=duplicate_result.outcome.value,
+                duration_ms=duration_ms(started_at),
+                processing_job_id=refreshed_job.id,
+                candidate_id=refreshed_job.candidate_id
+            )
             return duplicate_result
 
         raise
 
     claimed_job_id = claimed_job.id
     reservation_sha256 = claimed_job.resume_sha256
+    emit_event(
+        "resume_worker_started",
+        service=service_name("ats-worker"),
+        operation="resume_processing",
+        outcome="started",
+        processing_job_id=claimed_job_id
+    )
     resume_processor = (
         processor
         or process_resume_from_gcs
@@ -153,18 +185,36 @@ def handle_resume_processing_message(
             )
         )
 
-        return ResumeWorkerResult(
+        result = ResumeWorkerResult(
             processing_job_id=completed_job.id,
             outcome=WorkerOutcome.COMPLETED,
             candidate_id=completed_job.candidate_id
         )
 
+        emit_event(
+            "resume_worker_completed",
+            service=service_name("ats-worker"),
+            operation="resume_processing",
+            outcome="success",
+            duration_ms=duration_ms(started_at),
+            processing_job_id=completed_job.id,
+            candidate_id=completed_job.candidate_id
+        )
+
+        return result
+
     except Exception as error:
         db.rollback()
 
-        logger.exception(
-            "Resume processing worker failed: job_id=%s",
-            claimed_job_id
+        emit_event(
+            "resume_worker_failed",
+            service=service_name("ats-worker"),
+            severity="ERROR",
+            operation="resume_processing",
+            outcome="failure",
+            duration_ms=duration_ms(started_at),
+            processing_job_id=claimed_job_id,
+            error_category=type(error).__name__
         )
 
         try:
@@ -177,11 +227,15 @@ def handle_resume_processing_message(
                     .DEFAULT_PROCESSING_ERROR
                 )
             )
-        except Exception:
-            logger.exception(
-                "Resume processing job could not be marked failed: "
-                "job_id=%s",
-                claimed_job_id
+        except Exception as transition_error:
+            emit_event(
+                "resume_worker_failure_state_failed",
+                service=service_name("ats-worker"),
+                severity="ERROR",
+                operation="processing_job_failure_transition",
+                outcome="failure",
+                processing_job_id=claimed_job_id,
+                error_category=type(transition_error).__name__
             )
 
         raise ResumeWorkerError(

@@ -21,6 +21,7 @@ from app.repositories import (
 from app.repositories.job_match_repository import (
     CandidateMatchData
 )
+from app.services.observability_service import observe_operation
 
 
 SEMANTIC_WEIGHTS = (0.5, 0.3, 0.2)
@@ -58,18 +59,27 @@ def match_job_candidates(
             "Job embedding is unavailable"
         ) from error
 
-    candidate_data = (
-        job_match_repository
-        .get_candidate_match_data(
-            db,
-            job_embedding
+    with observe_operation(
+        "job_matching_vector_search",
+        job_id=job_id
+    ):
+        candidate_data = (
+            job_match_repository
+            .get_candidate_match_data(
+                db,
+                job_embedding
+            )
         )
-    )
 
-    return rank_candidates(
-        candidate_data,
-        job.extracted_requirements
-    )
+    with observe_operation(
+        "job_matching_ranking",
+        job_id=job_id,
+        candidate_count=len(candidate_data)
+    ):
+        return rank_candidates(
+            candidate_data,
+            job.extracted_requirements
+        )
 
 
 def rank_candidates(

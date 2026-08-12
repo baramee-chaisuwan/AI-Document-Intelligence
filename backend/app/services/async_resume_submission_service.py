@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,6 +28,10 @@ from app.services.gcs_storage_service import (
 from app.services.pubsub_publisher_service import (
     PubSubPublisherError
 )
+from app.services.observability_service import (
+    duration_ms,
+    emit_event
+)
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +47,7 @@ def submit_resume(
     content: bytes
 ):
 
+    started_at = time.perf_counter()
     submission_id = f"async-{uuid.uuid4().hex}"
     resume_sha256 = calculate_resume_sha256(
         content
@@ -52,15 +58,27 @@ def submit_resume(
             db,
             resume_sha256
         )
-    except DuplicateResumeError:
+    except DuplicateResumeError as error:
+        emit_event(
+            "async_resume_duplicate",
+            operation="async_resume_submission",
+            outcome="duplicate",
+            duration_ms=duration_ms(started_at),
+            candidate_id=error.candidate_id
+        )
         raise
     except (
         SQLAlchemyError,
         ResumeFingerprintReservationError
     ) as error:
         db.rollback()
-        logger.exception(
-            "Resume fingerprint reservation failed"
+        emit_event(
+            "async_resume_submission_failed",
+            severity="ERROR",
+            operation="fingerprint_reservation",
+            outcome="failure",
+            duration_ms=duration_ms(started_at),
+            error_category=type(error).__name__
         )
         raise AsyncResumeSubmissionError(
             "Async resume submission is unavailable"
@@ -73,8 +91,14 @@ def submit_resume(
             content=content
         )
     except GCSStorageError as error:
-        logger.exception(
-            "Async resume GCS upload failed"
+        emit_event(
+            "async_resume_submission_failed",
+            severity="ERROR",
+            operation="gcs_resume_upload",
+            outcome="failure",
+            duration_ms=duration_ms(started_at),
+            processing_job_id=processing_job.id,
+            error_category=type(error).__name__
         )
         _release_reservation_safely(
             db,
@@ -101,10 +125,14 @@ def submit_resume(
         PubSubPublisherError,
         ResumeProcessingMessageError
     ) as error:
-        logger.exception(
-            "Resume processing message publication failed: "
-            "job_id=%s",
-            processing_job.id
+        emit_event(
+            "async_resume_submission_failed",
+            severity="ERROR",
+            operation="pubsub_resume_publication",
+            outcome="failure",
+            duration_ms=duration_ms(started_at),
+            processing_job_id=processing_job.id,
+            error_category=type(error).__name__
         )
         _compensate_publication_failure(
             db,
@@ -114,6 +142,14 @@ def submit_resume(
         raise AsyncResumeSubmissionError(
             "Async resume submission is unavailable"
         ) from error
+
+    emit_event(
+        "async_resume_queued",
+        operation="async_resume_submission",
+        outcome="success",
+        duration_ms=duration_ms(started_at),
+        processing_job_id=processing_job.id
+    )
 
     return processing_job
 
@@ -132,12 +168,15 @@ def _compensate_publication_failure(
                 processing_job_id
             )
         )
-    except SQLAlchemyError:
+    except SQLAlchemyError as error:
         db.rollback()
-        logger.exception(
-            "Pending processing job compensation failed: "
-            "job_id=%s",
-            processing_job_id
+        emit_event(
+            "async_resume_compensation_failed",
+            severity="ERROR",
+            operation="processing_job_compensation",
+            outcome="failure",
+            processing_job_id=processing_job_id,
+            error_category=type(error).__name__
         )
         return
 
@@ -165,10 +204,13 @@ def _delete_stored_resume(
         gcs_storage_service.delete_object(
             stored_resume.key
         )
-    except GCSStorageError:
-        logger.exception(
-            "GCS compensation failed after %s",
-            context
+    except GCSStorageError as error:
+        emit_event(
+            "async_resume_compensation_failed",
+            severity="ERROR",
+            operation="gcs_resume_cleanup",
+            outcome="failure",
+            error_category=type(error).__name__
         )
 
 
@@ -184,10 +226,12 @@ def _release_reservation_safely(
             db,
             processing_job_id
         )
-    except ResumeFingerprintReservationError:
-        logger.exception(
-            "Fingerprint reservation compensation failed "
-            "after %s: job_id=%s",
-            context,
-            processing_job_id
+    except ResumeFingerprintReservationError as error:
+        emit_event(
+            "async_resume_compensation_failed",
+            severity="ERROR",
+            operation="fingerprint_reservation_cleanup",
+            outcome="failure",
+            processing_job_id=processing_job_id,
+            error_category=type(error).__name__
         )

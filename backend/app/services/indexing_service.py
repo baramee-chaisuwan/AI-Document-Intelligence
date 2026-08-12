@@ -10,6 +10,7 @@ from app.rag.embedding_service import (
 )
 from app.rag.text_splitter import split_resume
 from app.repositories import resume_chunk_repository
+from app.services.observability_service import observed_operation
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class ResumeIndexingError(RuntimeError):
     """Raised when resume chunks or embeddings cannot be prepared."""
 
 
+@observed_operation("resume_indexing")
 def index_resume(
     db: Session,
     document_id: str | int,
@@ -54,12 +56,6 @@ def index_resume(
         raise
 
     except Exception as error:
-
-        logger.exception(
-            "Resume embeddings could not be prepared: "
-            "candidate_id=%s",
-            candidate_id
-        )
 
         raise ResumeIndexingError(
             "Resume embeddings could not be prepared"
@@ -99,12 +95,6 @@ def index_resume(
         raise
 
     except Exception as error:
-
-        logger.exception(
-            "Durable resume chunks could not be prepared: "
-            "candidate_id=%s",
-            candidate_id
-        )
 
         raise ResumeIndexingError(
             "Durable resume chunks could not be prepared"

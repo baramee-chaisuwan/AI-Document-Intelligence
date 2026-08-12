@@ -7,6 +7,10 @@ import google.generativeai as genai
 
 from app.core.config import GEMINI_API_KEY
 from app.services.scoring_service import calculate_skill_score
+from app.services.observability_service import (
+    observe_operation,
+    observed_operation
+)
 
 
 logger = logging.getLogger(__name__)
@@ -390,6 +394,7 @@ def normalize_ai_score(
     )
 
 
+@observed_operation("resume_analysis_scoring")
 def analyze_resume(
     resume_data
 ):
@@ -462,38 +467,40 @@ Resume data:
 
     try:
 
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0,
-                "response_mime_type": (
-                    "application/json"
+        with observe_operation("gemini_resume_analysis"):
+
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0,
+                    "response_mime_type": (
+                        "application/json"
+                    )
+                }
+            )
+
+            if (
+                not response
+                or not response.text
+                or not response.text.strip()
+            ):
+
+                raise ValueError(
+                    "Gemini returned an empty response"
                 )
-            }
-        )
 
-        if (
-            not response
-            or not response.text
-            or not response.text.strip()
-        ):
-
-            raise ValueError(
-                "Gemini returned an empty response"
+            analysis = json.loads(
+                response.text
             )
 
-        analysis = json.loads(
-            response.text
-        )
+            if not isinstance(
+                analysis,
+                dict
+            ):
 
-        if not isinstance(
-            analysis,
-            dict
-        ):
-
-            raise ValueError(
-                "Gemini analysis must be an object"
-            )
+                raise ValueError(
+                    "Gemini analysis must be an object"
+                )
 
         ai_score = normalize_ai_score(
             analysis.get(
@@ -549,10 +556,6 @@ Resume data:
         }
 
     except Exception as error:
-
-        logger.exception(
-            "Resume analysis failed"
-        )
 
         return {
             "candidate_level": candidate_level,

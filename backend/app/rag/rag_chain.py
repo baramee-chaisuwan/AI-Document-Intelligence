@@ -7,6 +7,7 @@ from app.rag.chain import (
 
 from app.vector.hybrid_search import hybrid_search
 from app.vector.vector_service import get_candidate_documents
+from app.services.observability_service import observe_operation
 
 
 assistant_rag_chain = None
@@ -428,10 +429,11 @@ def ask_rag(
         )
 
 
-    results = hybrid_search(
-        query=question,
-        n_results=12
-    )
+    with observe_operation("rag_retrieval"):
+        results = hybrid_search(
+            query=question,
+            n_results=12
+        )
 
 
     context = build_candidate_context(
@@ -448,15 +450,16 @@ def ask_rag(
         return NO_INFORMATION_MESSAGE
 
 
-    answer = (
-        get_assistant_rag_chain()
-        .invoke(
-            {
-                "resume": context,
-                "question": question
-            }
+    with observe_operation("rag_answer_generation"):
+        answer = (
+            get_assistant_rag_chain()
+            .invoke(
+                {
+                    "resume": context,
+                    "question": question
+                }
+            )
         )
-    )
 
 
     answer = str(
@@ -637,10 +640,11 @@ def ask_recommendation(
         )
 
 
-    results = hybrid_search(
-        query=question,
-        n_results=20
-    )
+    with observe_operation("rag_retrieval"):
+        results = hybrid_search(
+            query=question,
+            n_results=20
+        )
 
 
     candidate_ids = get_candidate_ids(
@@ -669,15 +673,16 @@ def ask_recommendation(
         return create_empty_recommendation()
 
 
-    answer = (
-        get_recommendation_chain()
-        .invoke(
-            {
-                "resume": context,
-                "question": question
-            }
+    with observe_operation("rag_answer_generation"):
+        answer = (
+            get_recommendation_chain()
+            .invoke(
+                {
+                    "resume": context,
+                    "question": question
+                }
+            )
         )
-    )
 
 
     return normalize_recommendation_answer(

@@ -3,6 +3,7 @@ import logging
 import google.generativeai as genai
 
 from app.core.config import GEMINI_API_KEY
+from app.services.observability_service import observe_operation
 
 logger = logging.getLogger(__name__)
 
@@ -338,51 +339,43 @@ Resume content begins below.
 
     try:
 
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0,
-                "response_mime_type": (
-                    "application/json"
-                )
-            }
-        )
+        with observe_operation("gemini_resume_extraction"):
 
-        if (
-            not response
-            or not response.text
-            or not response.text.strip()
-        ):
-
-            raise ValueError(
-                "Gemini returned an empty response"
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0,
+                    "response_mime_type": (
+                        "application/json"
+                    )
+                }
             )
 
+            if (
+                not response
+                or not response.text
+                or not response.text.strip()
+            ):
 
-        parsed = json.loads(
-            response.text
-        )
+                raise ValueError(
+                    "Gemini returned an empty response"
+                )
 
+            parsed = json.loads(
+                response.text
+            )
 
-        return normalize_resume_data(
-            parsed
-        )
+            return normalize_resume_data(
+                parsed
+            )
 
     except json.JSONDecodeError as error:
-
-        logger.exception(
-            "Gemini returned invalid JSON"
-        )
 
         raise RuntimeError(
             "Resume extraction returned invalid JSON"
         ) from error
 
     except Exception as error:
-
-        logger.exception(
-            "Resume extraction failed"
-        )
 
         raise RuntimeError(
             "Resume extraction service failed"

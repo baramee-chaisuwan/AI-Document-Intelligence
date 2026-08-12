@@ -9,6 +9,7 @@ from app.models.resume_processing_message import (
     serialize_resume_processing_message,
     validate_resume_processing_message
 )
+from app.services.observability_service import observe_operation
 
 
 _PROJECT_ID_PATTERN = re.compile(
@@ -71,18 +72,24 @@ def publish_resume_processing_message(
     )
 
     try:
-        client = get_publisher_client()
-        topic_path = client.topic_path(
-            project_id,
-            topic_id
-        )
-        future = client.publish(
-            topic_path,
-            payload
-        )
-        message_id = future.result(
-            timeout=_PUBLISH_TIMEOUT_SECONDS
-        )
+        with observe_operation(
+            "pubsub_resume_publication",
+            processing_job_id=(
+                validated.processing_job_id
+            )
+        ):
+            client = get_publisher_client()
+            topic_path = client.topic_path(
+                project_id,
+                topic_id
+            )
+            future = client.publish(
+                topic_path,
+                payload
+            )
+            message_id = future.result(
+                timeout=_PUBLISH_TIMEOUT_SECONDS
+            )
     except PubSubPublisherError:
         raise
     except Exception as error:

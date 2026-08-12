@@ -3,6 +3,7 @@ import logging
 
 from app.models.job_model import JobRequirements
 from app.services.gemini_service import get_model
+from app.services.observability_service import observe_operation
 
 
 logger = logging.getLogger(__name__)
@@ -60,28 +61,29 @@ Job description begins below.
 """
 
     try:
-        response = get_model().generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0,
-                "response_mime_type": (
-                    "application/json"
-                )
-            }
-        )
-
-        if (
-            not response
-            or not response.text
-            or not response.text.strip()
-        ):
-            raise JobRequirementExtractionError(
-                "Gemini returned an empty response"
+        with observe_operation("gemini_job_requirement_extraction"):
+            response = get_model().generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0,
+                    "response_mime_type": (
+                        "application/json"
+                    )
+                }
             )
 
-        parsed = json.loads(response.text)
+            if (
+                not response
+                or not response.text
+                or not response.text.strip()
+            ):
+                raise JobRequirementExtractionError(
+                    "Gemini returned an empty response"
+                )
 
-        return normalize_job_requirements(parsed)
+            parsed = json.loads(response.text)
+
+            return normalize_job_requirements(parsed)
 
     except JobRequirementExtractionError:
         raise
@@ -91,17 +93,11 @@ Job description begins below.
         TypeError,
         ValueError
     ) as error:
-        logger.warning(
-            "Gemini returned invalid Job requirements"
-        )
         raise JobRequirementExtractionError(
             "Job requirements were invalid"
         ) from error
 
     except Exception as error:
-        logger.exception(
-            "Job requirement extraction failed"
-        )
         raise JobRequirementExtractionError(
             "Job requirement extraction is unavailable"
         ) from error

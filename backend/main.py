@@ -37,6 +37,10 @@ from app.api.health import (
 from app.api.upload import (
     router as upload_router
 )
+from app.services.observability_service import (
+    emit_event,
+    install_request_logging
+)
 from app.api.async_upload import (
     router as async_upload_router
 )
@@ -215,6 +219,11 @@ app.include_router(
     auth_router
 )
 
+install_request_logging(
+    app,
+    default_service="ats-api"
+)
+
 app.include_router(
     jobs_router
 )
@@ -331,11 +340,13 @@ def unexpected_error_handler(
     exc: Exception
 ):
 
-    logger.exception(
-        "Unexpected request failure: "
-        "method=%s path=%s",
-        request.method,
-        request.url.path
+    emit_event(
+        "unhandled_request_failure",
+        severity="ERROR",
+        operation="http_request",
+        outcome="failure",
+        method=request.method,
+        error_category=type(exc).__name__
     )
 
     return JSONResponse(

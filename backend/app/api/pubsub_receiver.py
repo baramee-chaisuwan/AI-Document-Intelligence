@@ -22,6 +22,7 @@ from app.services.resume_processing_worker import (
     WorkerOutcome,
     handle_resume_processing_message
 )
+from app.services.observability_service import emit_event
 
 
 logger = logging.getLogger(__name__)
@@ -91,14 +92,24 @@ async def receive_resume_processing_message(
         return Response(
             status_code=status.HTTP_204_NO_CONTENT
         )
-    except ResumeWorkerError:
-        logger.exception(
-            "Resume worker execution failed"
+    except ResumeWorkerError as error:
+        emit_event(
+            "pubsub_worker_request_failed",
+            severity="ERROR",
+            operation="resume_processing",
+            outcome="failure",
+            processing_job_id=message.processing_job_id,
+            error_category=type(error).__name__
         )
         return _retryable_response()
-    except Exception:
-        logger.exception(
-            "Resume worker request failed unexpectedly"
+    except Exception as error:
+        emit_event(
+            "pubsub_worker_request_failed",
+            severity="ERROR",
+            operation="resume_processing",
+            outcome="failure",
+            processing_job_id=message.processing_job_id,
+            error_category=type(error).__name__
         )
         return _retryable_response()
 

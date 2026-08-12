@@ -1,5 +1,6 @@
 import google.generativeai as genai
 from app.core.config import GEMINI_API_KEY
+from app.services.observability_service import observe_operation
 
 model = None
 
@@ -33,9 +34,9 @@ Resume:
 """
 
     try:
-        response = get_model().generate_content(prompt)
-        return response.text.strip()
+        with observe_operation("gemini_resume_summarization"):
+            response = get_model().generate_content(prompt)
+            return response.text.strip()
 
-    except Exception as e:
-        print("SUMMARY ERROR:", e)
+    except Exception:
         return "Summary generation failed"

@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 import hashlib
+import json
+import logging
 
 import pytest
 from sqlalchemy import create_engine
@@ -21,6 +23,7 @@ from app.models.resume_processing_message import (
     ResumeProcessingMessageError
 )
 from app.services import (
+    observability_service,
     processing_job_service,
     resume_fingerprint_service,
     resume_processing_worker
@@ -151,9 +154,13 @@ def test_pending_job_processes_and_associates_candidate():
         assert commit.call_count == 2
 
 
-def test_completion_persists_fingerprint_ownership_transfer():
+def test_completion_persists_fingerprint_ownership_transfer(
+    caplog
+):
 
     resume_sha256 = "a" * 64
+    caplog.set_level(logging.INFO, logger="ats.observability")
+    observability_service.logger.addHandler(caplog.handler)
 
     def fingerprinted_processor(db, object_key):
         candidate = Candidate(
@@ -172,21 +179,26 @@ def test_completion_persists_fingerprint_ownership_transfer():
         db.flush()
         return candidate
 
-    with TestingSessionLocal() as db:
-        job = processing_job_service.create_processing_job(
-            db,
-            resume_sha256=resume_sha256
-        )
-        job_id = job.id
-        result = (
-            resume_processing_worker
-            .handle_resume_processing_message(
+    try:
+        with TestingSessionLocal() as db:
+            job = processing_job_service.create_processing_job(
                 db,
-                message(job_id),
-                processor=fingerprinted_processor
+                resume_sha256=resume_sha256
             )
+            job_id = job.id
+            result = (
+                resume_processing_worker
+                .handle_resume_processing_message(
+                    db,
+                    message(job_id),
+                    processor=fingerprinted_processor
+                )
+            )
+            candidate_id = result.candidate_id
+    finally:
+        observability_service.logger.removeHandler(
+            caplog.handler
         )
-        candidate_id = result.candidate_id
 
     with TestingSessionLocal() as verification_db:
         persisted_job = verification_db.get(
@@ -211,6 +223,23 @@ def test_completion_persists_fingerprint_ownership_transfer():
             )
         )
         assert duplicate_candidate.id == candidate_id
+
+    worker_events = [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "ats.observability"
+    ]
+    assert any(
+        event["event"] == "resume_worker_started"
+        and event["processing_job_id"] == job_id
+        for event in worker_events
+    )
+    assert any(
+        event["event"] == "resume_worker_completed"
+        and event["candidate_id"] == candidate_id
+        and event["duration_ms"] >= 0
+        for event in worker_events
+    )
 
 
 def test_failure_after_association_flush_rolls_back_candidate_data(
@@ -393,38 +422,62 @@ def test_completion_conflict_rolls_back_data_and_preserves_terminal_state(
         assert db.query(ResumeChunk).count() == 0
 
 
-def test_processing_failure_marks_job_failed():
+def test_processing_failure_marks_job_failed(caplog):
 
     def fail_processing(db, object_key):
         raise RuntimeError(
             "internal provider detail"
         )
 
-    with TestingSessionLocal() as db:
-        job = processing_job_service.create_processing_job(db)
+    caplog.set_level(logging.INFO, logger="ats.observability")
+    observability_service.logger.addHandler(caplog.handler)
 
-        with pytest.raises(
-            ResumeWorkerError,
-            match="Resume processing failed"
-        ) as exc_info:
-            (
-                resume_processing_worker
-                .handle_resume_processing_message(
-                    db,
-                    message(job.id),
-                    processor=fail_processing
+    try:
+        with TestingSessionLocal() as db:
+            job = processing_job_service.create_processing_job(db)
+
+            with pytest.raises(
+                ResumeWorkerError,
+                match="Resume processing failed"
+            ) as exc_info:
+                (
+                    resume_processing_worker
+                    .handle_resume_processing_message(
+                        db,
+                        message(job.id),
+                        processor=fail_processing
+                    )
                 )
-            )
 
-        assert isinstance(exc_info.value.__cause__, RuntimeError)
-        persisted = db.get(ResumeProcessingJob, job.id)
-        assert persisted is not None
-        assert persisted.status == "FAILED"
-        assert persisted.completed_at is not None
-        assert persisted.error_message == (
-            processing_job_service.DEFAULT_PROCESSING_ERROR
+            assert isinstance(exc_info.value.__cause__, RuntimeError)
+            persisted = db.get(ResumeProcessingJob, job.id)
+            assert persisted is not None
+            assert persisted.status == "FAILED"
+            assert persisted.completed_at is not None
+            assert persisted.error_message == (
+                processing_job_service.DEFAULT_PROCESSING_ERROR
+            )
+            assert "provider" not in persisted.error_message
+    finally:
+        observability_service.logger.removeHandler(
+            caplog.handler
         )
-        assert "provider" not in persisted.error_message
+
+    worker_events = [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "ats.observability"
+    ]
+    failure_event = next(
+        event
+        for event in worker_events
+        if event["event"] == "resume_worker_failed"
+    )
+    assert failure_event["processing_job_id"] == job.id
+    assert failure_event["error_category"] == "RuntimeError"
+    assert "internal provider detail" not in json.dumps(
+        failure_event
+    )
 
 
 def test_completed_duplicate_is_safe_no_op():

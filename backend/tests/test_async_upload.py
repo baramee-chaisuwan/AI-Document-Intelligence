@@ -531,6 +531,11 @@ def test_cleanup_failure_preserves_original_submission_failure(
     caplog
 ):
 
+    from app.services import observability_service
+
+    observability_service.logger.addHandler(caplog.handler)
+    request_records_before = len(caplog.records)
+
     monkeypatch.setattr(
         async_resume_submission_service.gcs_storage_service,
         "put_object",
@@ -547,15 +552,28 @@ def test_cleanup_failure_preserves_original_submission_failure(
         Mock(side_effect=PubSubOperationError("publish failed"))
     )
 
-    response = post_async_resume(
-        client,
-        recruiter_headers
-    )
+    try:
+        response = post_async_resume(
+            client,
+            recruiter_headers
+        )
+    finally:
+        observability_service.logger.removeHandler(
+            caplog.handler
+        )
 
     assert response.status_code == 503
     assert response.json() == {
         "detail": "Async resume submission is unavailable"
     }
-    assert "GCS compensation failed" in caplog.text
+    observation_text = " ".join(
+        record.message
+        for record in caplog.records[request_records_before:]
+    )
+    assert '"event":"async_resume_compensation_failed"' in (
+        observation_text
+    )
+    assert '"operation":"gcs_resume_cleanup"' in observation_text
+    assert "cleanup failed" not in observation_text
     with TestingSessionLocal() as db:
         assert db.query(ResumeProcessingJob).count() == 0
