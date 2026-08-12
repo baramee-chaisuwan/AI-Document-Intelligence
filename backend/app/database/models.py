@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     func,
     Index,
@@ -20,6 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database.database import Base
 from app.models.candidate_stage import (
@@ -151,6 +153,7 @@ class PasswordResetToken(Base):
         nullable=False,
         default=utc_now
     )
+
     verified_at = Column(DateTime(timezone=True), nullable=True)
     consumed_at = Column(DateTime(timezone=True), nullable=True)
     invalidated_at = Column(DateTime(timezone=True), nullable=True)
@@ -527,4 +530,86 @@ class ResumeChunk(Base):
     candidate = relationship(
         "Candidate",
         back_populates="resume_chunks"
+    )
+
+
+class RAGEvaluation(Base):
+
+    __tablename__ = "rag_evaluations"
+
+    __table_args__ = (
+        CheckConstraint(
+            "operation IN ('assistant', 'recommendation')",
+            name="ck_rag_evaluations_operation"
+        ),
+        CheckConstraint(
+            "retrieved_count >= 0",
+            name="ck_rag_evaluations_retrieved_count"
+        ),
+        CheckConstraint(
+            (
+                "retrieval_latency_ms >= 0 AND "
+                "generation_latency_ms >= 0 AND "
+                "total_latency_ms >= 0"
+            ),
+            name="ck_rag_evaluations_nonnegative_latency"
+        ),
+        Index(
+            "ix_rag_evaluations_created_at",
+            "created_at"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    user_query = Column(
+        Text,
+        nullable=False
+    )
+
+    generated_answer = Column(
+        Text,
+        nullable=False
+    )
+
+    retrieved_documents = Column(
+        JSON().with_variant(JSONB, "postgresql"),
+        nullable=False,
+        default=list
+    )
+
+    retrieval_latency_ms = Column(
+        Float,
+        nullable=False
+    )
+
+    generation_latency_ms = Column(
+        Float,
+        nullable=False
+    )
+
+    total_latency_ms = Column(
+        Float,
+        nullable=False
+    )
+
+    retrieved_count = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    operation = Column(
+        String(20),
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now()
     )

@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -96,5 +96,6 @@ def test_recommend_candidate(
     ) == 1
 
     mock_recommend.assert_called_once_with(
-        question
+        question,
+        ANY
     )

@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     Depends
 )
+from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
     get_current_staff_user
@@ -10,6 +11,7 @@ from app.models.rag_model import (
     RagRequest,
     RecommendationResponse
 )
+from app.database.database import get_db
 
 
 router = APIRouter(
@@ -19,7 +21,8 @@ router = APIRouter(
 
 
 def ask_recommendation(
-    question: str
+    question: str,
+    db: Session
 ):
 
     from app.services.rag_service import (
@@ -27,7 +30,8 @@ def ask_recommendation(
     )
 
     return service(
-        question
+        question,
+        db=db
     )
 
 
@@ -40,7 +44,8 @@ def ask_recommendation(
     summary="Recommend the best matching candidate"
 )
 def recommend_candidate(
-    request: RagRequest
+    request: RagRequest,
+    db: Session = Depends(get_db)
 ):
     """
     Compare indexed candidates against a job requirement
@@ -48,5 +53,6 @@ def recommend_candidate(
     """
 
     return ask_recommendation(
-        request.question
+        request.question,
+        db
     )

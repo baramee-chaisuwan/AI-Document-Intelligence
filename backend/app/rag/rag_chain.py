@@ -1,4 +1,7 @@
+import time
+
 from langchain_core.output_parsers import StrOutputParser
+from sqlalchemy.orm import Session
 
 from app.rag.chain import (
     get_assistant_chain,
@@ -8,6 +11,10 @@ from app.rag.chain import (
 from app.vector.hybrid_search import hybrid_search
 from app.vector.vector_service import get_candidate_documents
 from app.services.observability_service import observe_operation
+from app.services.observability_service import duration_ms
+from app.services.rag_evaluation_service import (
+    persist_evaluation_safely
+)
 
 
 assistant_rag_chain = None
@@ -414,7 +421,8 @@ def build_multiple_candidate_context(
 
 
 def ask_rag(
-    question: str
+    question: str,
+    db: Session | None = None
 ):
 
     question = str(
@@ -429,11 +437,17 @@ def ask_rag(
         )
 
 
+    total_started_at = time.perf_counter()
+    retrieval_started_at = time.perf_counter()
+
     with observe_operation("rag_retrieval"):
         results = hybrid_search(
             query=question,
             n_results=12
         )
+    retrieval_latency_ms = duration_ms(
+        retrieval_started_at
+    )
 
 
     context = build_candidate_context(
@@ -447,9 +461,21 @@ def ask_rag(
 
     if not context.strip():
 
+        persist_evaluation_safely(
+            db,
+            user_query=question,
+            generated_answer=NO_INFORMATION_MESSAGE,
+            retrieved_results=results,
+            retrieval_latency_ms=retrieval_latency_ms,
+            generation_latency_ms=0.0,
+            total_latency_ms=duration_ms(total_started_at),
+            operation="assistant"
+        )
+
         return NO_INFORMATION_MESSAGE
 
 
+    generation_started_at = time.perf_counter()
     with observe_operation("rag_answer_generation"):
         answer = (
             get_assistant_rag_chain()
@@ -460,6 +486,9 @@ def ask_rag(
                 }
             )
         )
+    generation_latency_ms = duration_ms(
+        generation_started_at
+    )
 
 
     answer = str(
@@ -469,7 +498,18 @@ def ask_rag(
 
     if not answer:
 
-        return NO_INFORMATION_MESSAGE
+        answer = NO_INFORMATION_MESSAGE
+
+    persist_evaluation_safely(
+        db,
+        user_query=question,
+        generated_answer=answer,
+        retrieved_results=results,
+        retrieval_latency_ms=retrieval_latency_ms,
+        generation_latency_ms=generation_latency_ms,
+        total_latency_ms=duration_ms(total_started_at),
+        operation="assistant"
+    )
 
 
     return answer
@@ -625,7 +665,8 @@ def normalize_recommendation_answer(
 
 
 def ask_recommendation(
-    question: str
+    question: str,
+    db: Session | None = None
 ):
 
     question = str(
@@ -640,11 +681,17 @@ def ask_recommendation(
         )
 
 
+    total_started_at = time.perf_counter()
+    retrieval_started_at = time.perf_counter()
+
     with observe_operation("rag_retrieval"):
         results = hybrid_search(
             query=question,
             n_results=20
         )
+    retrieval_latency_ms = duration_ms(
+        retrieval_started_at
+    )
 
 
     candidate_ids = get_candidate_ids(
@@ -657,7 +704,18 @@ def ask_recommendation(
 
     if not candidate_ids:
 
-        return create_empty_recommendation()
+        answer = create_empty_recommendation()
+        persist_evaluation_safely(
+            db,
+            user_query=question,
+            generated_answer=answer,
+            retrieved_results=results,
+            retrieval_latency_ms=retrieval_latency_ms,
+            generation_latency_ms=0.0,
+            total_latency_ms=duration_ms(total_started_at),
+            operation="recommendation"
+        )
+        return answer
 
 
     context = build_multiple_candidate_context(
@@ -670,9 +728,21 @@ def ask_recommendation(
 
     if not context.strip():
 
-        return create_empty_recommendation()
+        answer = create_empty_recommendation()
+        persist_evaluation_safely(
+            db,
+            user_query=question,
+            generated_answer=answer,
+            retrieved_results=results,
+            retrieval_latency_ms=retrieval_latency_ms,
+            generation_latency_ms=0.0,
+            total_latency_ms=duration_ms(total_started_at),
+            operation="recommendation"
+        )
+        return answer
 
 
+    generation_started_at = time.perf_counter()
     with observe_operation("rag_answer_generation"):
         answer = (
             get_recommendation_chain()
@@ -683,11 +753,27 @@ def ask_recommendation(
                 }
             )
         )
+    generation_latency_ms = duration_ms(
+        generation_started_at
+    )
 
 
-    return normalize_recommendation_answer(
+    normalized_answer = normalize_recommendation_answer(
         answer,
         allowed_candidate_ids=(
             candidate_ids
         )
     )
+
+    persist_evaluation_safely(
+        db,
+        user_query=question,
+        generated_answer=normalized_answer,
+        retrieved_results=results,
+        retrieval_latency_ms=retrieval_latency_ms,
+        generation_latency_ms=generation_latency_ms,
+        total_latency_ms=duration_ms(total_started_at),
+        operation="recommendation"
+    )
+
+    return normalized_answer

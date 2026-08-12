@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -60,5 +60,6 @@ def test_assistant_rag(
         (
             "Who built AI Document Intelligence "
             "ATS Resume Screening System?"
-        )
+        ),
+        ANY
     )
