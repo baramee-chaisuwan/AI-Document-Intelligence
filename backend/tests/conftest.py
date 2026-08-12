@@ -1,4 +1,20 @@
+import os
+
 import pytest
+
+
+os.environ.setdefault("TESTING", "true")
+os.environ.setdefault("PYTHON_DOTENV_DISABLED", "1")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "sqlite:///./.pytest-safe-default.db"
+)
+os.environ.setdefault("GEMINI_API_KEY", "test-only-not-real")
+os.environ.setdefault(
+    "JWT_SECRET_KEY",
+    "test-only-jwt-secret-with-at-least-32-bytes"
+)
+
 
 from app.api.dependencies import (
     get_current_admin_user,

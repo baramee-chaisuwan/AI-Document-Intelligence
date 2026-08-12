@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
@@ -42,7 +42,11 @@ def dashboard_summary(
     description="Returns the highest-scoring candidates for the dashboard."
 )
 def top_candidates(
-    limit: int = 5,
+    limit: int = Query(
+        default=5,
+        ge=1,
+        le=100
+    ),
     db: Session = Depends(get_db)
 ):
     return dashboard_service.get_top_candidates(db, limit)
@@ -72,7 +76,11 @@ def level_distribution(db: Session = Depends(get_db)):
     description="Returns most recently created candidates."
 )
 def recent_candidates(
-    limit: int = 5,
+    limit: int = Query(
+        default=5,
+        ge=1,
+        le=100
+    ),
     db: Session = Depends(get_db)
 ):
     return dashboard_service.get_recent_candidates(db, limit)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
@@ -30,8 +30,8 @@ router = APIRouter(
     description="Returns a paginated list of candidates ordered by skill score."
 )
 def get_candidates(
-    skip: int = 0,
-    limit: int = 10,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
      return candidate_service.get_candidates(db, skip, limit)
@@ -46,9 +46,21 @@ def get_candidates(
     description="Filter candidates by name, level, or minimum skill score."
 )
 def search_candidates(
-    name: str | None = None,
-    level: str | None = None,
-    min_score: int | None = None,
+    name: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=255
+    ),
+    level: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=50
+    ),
+    min_score: int | None = Query(
+        default=None,
+        ge=0,
+        le=100
+    ),
     db: Session = Depends(get_db)
 ):
     return candidate_service.search_candidates(db, name, level, min_score)
@@ -77,7 +89,11 @@ def get_candidate_stats(
     description="Returns top candidates ordered by skill score, then by ID."
 )
 def get_ranking(
-    limit: int = 10,
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=100
+    ),
     db: Session = Depends(get_db)
 ):
     return candidate_service.get_ranking(db, limit)

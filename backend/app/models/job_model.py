@@ -31,7 +31,8 @@ class JobCreateRequest(BaseModel):
         max_length=255
     )
     description: str = Field(
-        min_length=1
+        min_length=1,
+        max_length=10000
     )
 
     @field_validator(
