@@ -293,10 +293,10 @@ def test_bm25_search_reloads_postgresql_source_each_time():
         yield Mock()
 
     with patch(
-        "app.vector.bm25_service.SessionLocal",
+        "app.database.database.SessionLocal",
         side_effect=session_factory
     ) as sessions, patch(
-        "app.vector.bm25_service."
+        "app.repositories."
         "resume_chunk_repository.get_all_chunks",
         return_value=chunks
     ) as load_chunks:
