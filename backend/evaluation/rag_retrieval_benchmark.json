@@ -1,0 +1,47 @@
+{
+  "benchmark_version": 1,
+  "description": "Synthetic deterministic retrieval benchmark for the ATS hybrid RAG pipeline.",
+  "cases": [
+    {
+      "id": "semantic_backend_01",
+      "query": "Who has experience building reliable web APIs in Python?",
+      "relevant_document_ids": ["eval-python-backend-0"],
+      "category": "semantic_matching",
+      "notes": "Tests semantic phrasing without requiring an exact framework name."
+    },
+    {
+      "id": "exact_kubernetes_01",
+      "query": "Kubernetes Helm deployment experience",
+      "relevant_document_ids": ["eval-platform-0"],
+      "category": "exact_technical_keywords"
+    },
+    {
+      "id": "abbreviation_llm_01",
+      "query": "LLM application experience",
+      "relevant_document_ids": ["eval-llm-0"],
+      "category": "abbreviation"
+    },
+    {
+      "id": "multi_skill_01",
+      "query": "Python AWS Docker engineer",
+      "relevant_document_ids": [
+        "eval-python-backend-0",
+        "eval-cloud-backend-0"
+      ],
+      "category": "multi_skill"
+    },
+    {
+      "id": "no_result_01",
+      "query": "marine biology coral taxonomy",
+      "relevant_document_ids": [],
+      "category": "no_result",
+      "notes": "A valid result is an empty retrieval list."
+    },
+    {
+      "id": "lexical_semantic_01",
+      "query": "event driven ETL pipelines",
+      "relevant_document_ids": ["eval-data-pipeline-0"],
+      "category": "lexical_vs_semantic"
+    }
+  ]
+}

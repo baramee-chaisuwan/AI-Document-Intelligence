@@ -335,6 +335,23 @@ assistant, recommendations, and admin-only CSV export.
 - **Hybrid retrieval**: vector and BM25 rankings are fused with equal-weight
   Reciprocal Rank Fusion (`RRF_K = 60`) before context is handed to Gemini.
 
+### Deterministic retrieval evaluation
+
+A versioned synthetic benchmark measures the current hybrid retrieval path
+offline with Recall@1/3/5, MRR, and nDCG@5. It uses no Gemini or cloud API and
+compares aggregate results with a committed baseline using conservative
+floating-point tolerances.
+
+Run it from `backend/`:
+
+```bash
+python -m app.rag.evaluate_retrieval
+python -m app.rag.evaluate_retrieval --json
+```
+
+See [`docs/evaluation.md`](docs/evaluation.md) for the relevance assumptions,
+version 1 dataset, current measured baseline, and update procedure.
+
 ### Data pipeline
 
 - **PDF processing**: PyMuPDF extracts text per page; image-only PDFs with no
@@ -794,15 +811,15 @@ AI-Document-Intelligence/
   settings remain deployment responsibilities.
 - BM25 is rebuilt from PostgreSQL chunks for each query, which favors
   consistency and simplicity over very large-corpus throughput.
-- RAG evaluation has human ratings but no automated judge, benchmark dataset,
-  aggregate quality dashboard, or formal retention/deletion workflow.
+- RAG evaluation has human ratings and a deterministic retrieval benchmark,
+  but no automated judge, aggregate quality dashboard, or formal
+  retention/deletion workflow.
+- The deterministic retrieval benchmark is deliberately synthetic and does
+  not measure embedding-model quality or production-corpus drift.
 - The pipeline UI intentionally loads only the first 50 candidates returned by
   the existing candidate-list API.
 
 ## Future improvements
-
-- **Automated RAG evaluation** — add a versioned benchmark dataset, retrieval
-  relevance metrics, grounded-answer checks, and aggregate quality reporting.
 
 - **Async reconciliation tooling** — add dead-letter handling, orphan scans,
   controlled replay, and operator-visible recovery workflows.

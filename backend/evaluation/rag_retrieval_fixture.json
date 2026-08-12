@@ -1,0 +1,74 @@
+{
+  "benchmark_version": 1,
+  "description": "Synthetic corpus and deterministic vector rankings used by benchmark version 1.",
+  "documents": [
+    {
+      "document_id": "eval-python-backend-0",
+      "candidate_ref": "eval-candidate-python",
+      "text": "Backend engineer building reliable Python FastAPI REST services with PostgreSQL testing and API design."
+    },
+    {
+      "document_id": "eval-platform-0",
+      "candidate_ref": "eval-candidate-platform",
+      "text": "Platform engineer operating Kubernetes clusters and Helm deployments with observability and release automation."
+    },
+    {
+      "document_id": "eval-llm-0",
+      "candidate_ref": "eval-candidate-llm",
+      "text": "Machine learning engineer creating LLM applications using large language models retrieval augmented generation and prompt evaluation."
+    },
+    {
+      "document_id": "eval-cloud-backend-0",
+      "candidate_ref": "eval-candidate-cloud",
+      "text": "Cloud backend engineer delivering Python services on AWS with Docker containers infrastructure automation and deployment pipelines."
+    },
+    {
+      "document_id": "eval-data-pipeline-0",
+      "candidate_ref": "eval-candidate-data",
+      "text": "Data engineer designing event driven ETL pipelines streaming ingestion orchestration and warehouse transformations."
+    },
+    {
+      "document_id": "eval-frontend-0",
+      "candidate_ref": "eval-candidate-frontend",
+      "text": "Frontend engineer developing accessible React interfaces TypeScript design systems and browser testing."
+    }
+  ],
+  "vector_rankings": {
+    "semantic_backend_01": [
+      "eval-python-backend-0",
+      "eval-cloud-backend-0",
+      "eval-frontend-0",
+      "eval-platform-0",
+      "eval-data-pipeline-0"
+    ],
+    "exact_kubernetes_01": [
+      "eval-platform-0",
+      "eval-cloud-backend-0",
+      "eval-python-backend-0",
+      "eval-frontend-0",
+      "eval-data-pipeline-0"
+    ],
+    "abbreviation_llm_01": [
+      "eval-llm-0",
+      "eval-data-pipeline-0",
+      "eval-python-backend-0",
+      "eval-cloud-backend-0",
+      "eval-platform-0"
+    ],
+    "multi_skill_01": [
+      "eval-cloud-backend-0",
+      "eval-python-backend-0",
+      "eval-platform-0",
+      "eval-data-pipeline-0",
+      "eval-frontend-0"
+    ],
+    "no_result_01": [],
+    "lexical_semantic_01": [
+      "eval-data-pipeline-0",
+      "eval-cloud-backend-0",
+      "eval-platform-0",
+      "eval-python-backend-0",
+      "eval-frontend-0"
+    ]
+  }
+}

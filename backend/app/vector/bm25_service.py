@@ -2,9 +2,6 @@ import re
 
 from rank_bm25 import BM25Okapi
 
-from app.database.database import SessionLocal
-from app.repositories import resume_chunk_repository
-
 
 DEFAULT_SEARCH_RESULTS = 10
 MAX_SEARCH_RESULTS = 50
@@ -50,6 +47,9 @@ def search_bm25(
     query: str,
     n_results: int = DEFAULT_SEARCH_RESULTS
 ):
+
+    from app.database.database import SessionLocal
+    from app.repositories import resume_chunk_repository
 
     query = validate_text(
         query,

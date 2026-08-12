@@ -1,11 +1,25 @@
-from app.vector.vector_service import search_documents
-from app.vector.bm25_service import search_bm25
-
-
 RRF_K = 60
 DEFAULT_VECTOR_WEIGHT = 1.0
 DEFAULT_BM25_WEIGHT = 1.0
 MAX_RESULTS = 50
+
+
+def search_documents(*args, **kwargs):
+
+    from app.vector.vector_service import (
+        search_documents as vector_search
+    )
+
+    return vector_search(*args, **kwargs)
+
+
+def search_bm25(*args, **kwargs):
+
+    from app.vector.bm25_service import (
+        search_bm25 as keyword_search
+    )
+
+    return keyword_search(*args, **kwargs)
 
 
 def validate_query(
