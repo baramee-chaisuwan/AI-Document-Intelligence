@@ -29,6 +29,28 @@ SEMANTIC_SCORE_WEIGHT = 0.55
 REQUIRED_SKILL_SCORE_WEIGHT = 0.35
 PREFERRED_SKILL_SCORE_WEIGHT = 0.10
 SKILL_BOUNDARY_CHARACTERS = r"\w+#"
+SKILL_WRAPPER_PATTERNS = (
+    r"^(?:basic\s+)?knowledge\s+of\s+",
+    r"^understanding\s+of\s+",
+    r"^experience\s+with\s+",
+    r"^ability\s+to\s+(?:read\s+)?",
+)
+GENERIC_SKILL_TOKENS = {
+    "ability",
+    "analysis",
+    "control",
+    "experience",
+    "knowledge",
+    "management",
+    "practice",
+    "safety",
+    "system",
+    "understanding",
+}
+TRAILING_GENERIC_TOKENS = {
+    "practice",
+    "system",
+}
 
 
 def match_job_candidates(
@@ -306,9 +328,98 @@ def normalize_text(value) -> str:
     if not isinstance(value, str):
         return ""
 
-    return " ".join(
-        value.casefold().split()
+    normalized = re.sub(
+        r"[-‐‑‒–—/]",
+        " ",
+        value.casefold()
     )
+    normalized = re.sub(
+        r"[().,:;]",
+        " ",
+        normalized
+    )
+    tokens = [
+        _normalize_plural(token)
+        for token in normalized.split()
+    ]
+
+    return " ".join(tokens)
+
+
+def _normalize_plural(token: str) -> str:
+    """Normalize only conservative regular plural forms."""
+
+    if (
+        len(token) > 4
+        and token.endswith("ies")
+    ):
+        return f"{token[:-3]}y"
+
+    if (
+        len(token) > 3
+        and token.endswith("s")
+        and not token.endswith(("ss", "us", "is"))
+    ):
+        return token[:-1]
+
+    return token
+
+
+def _strip_skill_wrapper(skill: str) -> str:
+    normalized = normalize_text(skill)
+
+    for pattern in SKILL_WRAPPER_PATTERNS:
+        stripped = re.sub(pattern, "", normalized)
+        if stripped != normalized:
+            return stripped.strip()
+
+    return normalized
+
+
+def _is_specific_concept(concept: str) -> bool:
+    tokens = concept.split()
+
+    return bool(
+        tokens
+        and any(
+            token not in GENERIC_SKILL_TOKENS
+            for token in tokens
+        )
+    )
+
+
+def _concept_variants(concept: str) -> list[str]:
+    variants = [concept]
+    tokens = concept.split()
+
+    if (
+        len(tokens) > 1
+        and tokens[-1] in TRAILING_GENERIC_TOKENS
+    ):
+        shortened = " ".join(tokens[:-1])
+        if _is_specific_concept(shortened):
+            variants.append(shortened)
+
+    return variants
+
+
+def _phrase_is_present(
+    phrase: str,
+    normalized_evidence: str
+) -> bool:
+    if not phrase or not normalized_evidence:
+        return False
+
+    pattern = (
+        f"(?<![{SKILL_BOUNDARY_CHARACTERS}])"
+        f"{re.escape(phrase)}"
+        f"(?![{SKILL_BOUNDARY_CHARACTERS}])"
+    )
+
+    return re.search(
+        pattern,
+        normalized_evidence
+    ) is not None
 
 
 def skill_is_present(
@@ -327,16 +438,56 @@ def skill_is_present(
     ):
         return False
 
-    pattern = (
-        f"(?<![{SKILL_BOUNDARY_CHARACTERS}])"
-        f"{re.escape(normalized_skill)}"
-        f"(?![{SKILL_BOUNDARY_CHARACTERS}])"
-    )
+    if (
+        " " not in normalized_skill
+        and normalized_skill in GENERIC_SKILL_TOKENS
+    ):
+        return False
 
-    return re.search(
-        pattern,
+    unwrapped_skill = _strip_skill_wrapper(skill)
+    if (
+        unwrapped_skill != normalized_skill
+        and " " not in unwrapped_skill
+        and unwrapped_skill in GENERIC_SKILL_TOKENS
+    ):
+        return False
+
+    if _phrase_is_present(
+        normalized_skill,
         normalized_evidence
-    ) is not None
+    ):
+        return True
+
+    concepts = [
+        concept.strip()
+        for concept in re.split(
+            r"\s+and\s+",
+            unwrapped_skill
+        )
+        if concept.strip()
+    ]
+
+    if not concepts:
+        return False
+
+    if any(
+        not _is_specific_concept(concept)
+        for concept in concepts
+    ):
+        return False
+
+    return all(
+        any(
+            _phrase_is_present(
+                variant,
+                normalized_evidence
+            )
+            for variant in _concept_variants(
+                concept
+            )
+        )
+        for concept in concepts
+    )
 
 
 def clamp_score(value: float) -> float:

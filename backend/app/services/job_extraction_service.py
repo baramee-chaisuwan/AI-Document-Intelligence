@@ -42,7 +42,23 @@ Rules:
 - Return only valid JSON.
 - Do not include markdown or explanations.
 - Do not invent or infer unstated requirements.
-- Preserve concrete skills, experience requirements, and responsibilities.
+- Put only atomic, independently matchable professional skills or
+  competencies in required_skills and preferred_skills.
+- Remove competency framing such as "knowledge of", "understanding of",
+  "ability to", and "experience with" when the underlying skill can be
+  represented directly.
+- Split compound skill requirements when each component is independently
+  meaningful. For example, return "Preventive Maintenance" and "Electrical
+  Troubleshooting" instead of "Understanding of preventive maintenance and
+  electrical troubleshooting".
+- Return "Electrical Drawings" and "Single-Line Diagrams" separately instead
+  of "Ability to read electrical drawings and single-line diagrams".
+- Return "Motor Control Systems" and "Control Panels" separately instead of
+  "Basic knowledge of motor control systems and control panels".
+- Keep duties and accountable work in responsibilities, not skill sentences.
+- Keep tenure and prior-experience requirements in experience_requirements.
+- Preserve whether each explicitly stated skill is required or preferred.
+- Apply these rules equally to technical, operational, and business roles.
 - Use an empty array when a category is missing.
 - Return exactly these four fields:
 

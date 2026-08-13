@@ -67,6 +67,44 @@ def test_extract_job_requirements_returns_structured_data(
     )
 
 
+def test_extraction_prompt_requires_atomic_profession_neutral_skills(
+    monkeypatch
+):
+    model = Mock()
+    model.generate_content.return_value = gemini_response({
+        "required_skills": [
+            "Preventive Maintenance",
+            "Electrical Troubleshooting",
+        ],
+        "preferred_skills": ["AutoCAD Electrical"],
+        "experience_requirements": [],
+        "responsibilities": [],
+    })
+    monkeypatch.setattr(
+        job_extraction_service,
+        "get_model",
+        lambda: model
+    )
+
+    result = extract_job_requirements(
+        "Understanding of preventive maintenance and "
+        "electrical troubleshooting is required."
+    )
+
+    prompt = model.generate_content.call_args.args[0]
+    assert "atomic, independently matchable" in prompt
+    assert "Keep duties" in prompt
+    assert "Keep tenure" in prompt
+    assert "technical, operational, and business roles" in prompt
+    assert result["required_skills"] == [
+        "Preventive Maintenance",
+        "Electrical Troubleshooting",
+    ]
+    assert result["preferred_skills"] == [
+        "AutoCAD Electrical"
+    ]
+
+
 def test_missing_categories_normalize_to_empty_lists():
 
     result = normalize_job_requirements({

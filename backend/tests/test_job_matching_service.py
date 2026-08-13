@@ -113,6 +113,121 @@ def test_skill_matching_avoids_loose_substrings():
     ) is False
 
 
+@pytest.mark.parametrize(
+    ("skill", "evidence"),
+    [
+        ("Single-Line Diagrams", "Prepared a Single Line Diagram"),
+        ("Electrical distribution systems", "Electrical Distribution"),
+        ("Electrical safety practices", "Electrical Safety"),
+    ]
+)
+def test_skill_matching_supports_safe_format_and_plural_variants(
+    skill,
+    evidence
+):
+    assert skill_is_present(skill, evidence) is True
+
+
+def test_compound_requirement_requires_all_specific_concepts():
+    requirement = (
+        "Understanding of preventive maintenance and "
+        "electrical troubleshooting"
+    )
+
+    assert skill_is_present(
+        requirement,
+        "Preventive Maintenance and Electrical Troubleshooting"
+    ) is True
+    assert skill_is_present(
+        requirement,
+        "Preventive Maintenance"
+    ) is False
+
+
+@pytest.mark.parametrize(
+    "generic_skill",
+    [
+        "Management",
+        "Systems",
+        "Analysis",
+        "Control",
+        "Safety",
+    ]
+)
+def test_generic_words_do_not_independently_prove_a_match(
+    generic_skill
+):
+    assert skill_is_present(
+        generic_skill,
+        f"Includes {generic_skill} expertise"
+    ) is False
+    assert skill_is_present(
+        f"Knowledge of {generic_skill}",
+        f"Knowledge of {generic_skill}"
+    ) is False
+
+
+def test_kittipong_electrical_requirements_no_longer_score_zero():
+    required = [
+        "Knowledge of electrical distribution systems",
+        (
+            "Understanding of preventive maintenance and "
+            "electrical troubleshooting"
+        ),
+        (
+            "Ability to read electrical drawings and "
+            "single-line diagrams"
+        ),
+        (
+            "Basic knowledge of motor control systems and "
+            "control panels"
+        ),
+        "Understanding of electrical safety practices",
+    ]
+    resume = """
+    KITTIPONG SRISUK
+    Electrical Distribution
+    Preventive Maintenance
+    Electrical Troubleshooting
+    Motor Control
+    Control Panels
+    AutoCAD Electrical
+    Single-Line Diagrams
+    Electrical Safety
+    PLC and SCADA fundamentals
+    """
+
+    score, matched, missing = calculate_skill_coverage(
+        required,
+        resume
+    )
+
+    assert score == 80.0
+    assert matched == [
+        required[0],
+        required[1],
+        required[3],
+        required[4],
+    ]
+    assert missing == [required[2]]
+
+
+def test_original_requirement_label_is_preserved_for_ui():
+    original = (
+        "Understanding of preventive maintenance and "
+        "electrical troubleshooting"
+    )
+
+    score, matched, missing = calculate_skill_coverage(
+        [original],
+        "Preventive Maintenance; Electrical Troubleshooting"
+    )
+
+    assert score == 100.0
+    assert matched == [original]
+    assert missing == []
+
+
 def test_final_score_and_explainability_follow_formula():
 
     results = rank_candidates(
