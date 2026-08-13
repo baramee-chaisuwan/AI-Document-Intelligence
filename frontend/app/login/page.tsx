@@ -10,10 +10,10 @@ import { useRouter } from "next/navigation";
 import {
     BrainCircuit,
     Loader2,
-    LockKeyhole,
     Mail,
 } from "lucide-react";
 
+import PasswordInput from "@/components/auth/PasswordInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { consumeRegistrationSuccess } from "@/lib/registration-flash";
 import { consumePasswordResetSuccess } from "@/lib/password-reset-flash";
@@ -193,25 +193,17 @@ export default function LoginPage() {
                                 </Link>
                             </div>
 
-                            <div className="relative mt-2">
-                                <LockKeyhole
-                                    size={18}
-                                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                                />
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    required
-                                    value={password}
-                                    onChange={(event) => {
-                                        setPassword(event.target.value);
-                                    }}
-                                    className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    placeholder="Enter your password"
-                                />
-                            </div>
+                            <PasswordInput
+                                id="password"
+                                name="password"
+                                autoComplete="current-password"
+                                required
+                                value={password}
+                                onChange={(event) => {
+                                    setPassword(event.target.value);
+                                }}
+                                placeholder="Enter your password"
+                            />
                         </div>
 
 

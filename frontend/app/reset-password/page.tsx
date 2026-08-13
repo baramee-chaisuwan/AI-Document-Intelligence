@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Loader2, LockKeyhole } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import RecoveryShell from "@/components/auth/RecoveryShell";
+import PasswordInput from "@/components/auth/PasswordInput";
 import { setPasswordResetSuccess } from "@/lib/password-reset-flash";
 import {
     clearPasswordResetState,
@@ -118,20 +119,16 @@ export default function ResetPasswordPage() {
                         <label htmlFor={field.id} className="text-sm font-medium text-gray-700">
                             {field.label}
                         </label>
-                        <div className="relative mt-2">
-                            <LockKeyhole size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                id={field.id}
-                                type="password"
-                                autoComplete="new-password"
-                                required
-                                minLength={8}
-                                maxLength={72}
-                                value={field.value}
-                                onChange={(event) => field.setter(event.target.value)}
-                                className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            />
-                        </div>
+                        <PasswordInput
+                            id={field.id}
+                            name={field.id}
+                            autoComplete="new-password"
+                            required
+                            minLength={8}
+                            maxLength={72}
+                            value={field.value}
+                            onChange={(event) => field.setter(event.target.value)}
+                        />
                     </div>
                 ))}
                 {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

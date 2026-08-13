@@ -7,11 +7,11 @@ import { useRouter } from "next/navigation";
 import {
     BrainCircuit,
     Loader2,
-    LockKeyhole,
     Mail,
     UserRound,
 } from "lucide-react";
 
+import PasswordInput from "@/components/auth/PasswordInput";
 import { setRegistrationSuccess } from "@/lib/registration-flash";
 import { registerUser } from "@/services/auth";
 
@@ -225,22 +225,17 @@ export default function RegisterPage() {
                             <label htmlFor="password" className="text-sm font-medium text-gray-700">
                                 Password
                             </label>
-                            <div className="relative mt-2">
-                                <LockKeyhole size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    required
-                                    minLength={8}
-                                    maxLength={72}
-                                    value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
-                                    className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    placeholder="8–72 characters"
-                                />
-                            </div>
+                            <PasswordInput
+                                id="password"
+                                name="password"
+                                autoComplete="new-password"
+                                required
+                                minLength={8}
+                                maxLength={72}
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                placeholder="8–72 characters"
+                            />
                         </div>
 
 
@@ -248,22 +243,17 @@ export default function RegisterPage() {
                             <label htmlFor="confirm_password" className="text-sm font-medium text-gray-700">
                                 Confirm password
                             </label>
-                            <div className="relative mt-2">
-                                <LockKeyhole size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    id="confirm_password"
-                                    name="confirm_password"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    required
-                                    minLength={8}
-                                    maxLength={72}
-                                    value={confirmPassword}
-                                    onChange={(event) => setConfirmPassword(event.target.value)}
-                                    className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    placeholder="Enter your password again"
-                                />
-                            </div>
+                            <PasswordInput
+                                id="confirm_password"
+                                name="confirm_password"
+                                autoComplete="new-password"
+                                required
+                                minLength={8}
+                                maxLength={72}
+                                value={confirmPassword}
+                                onChange={(event) => setConfirmPassword(event.target.value)}
+                                placeholder="Enter your password again"
+                            />
                         </div>
 
 

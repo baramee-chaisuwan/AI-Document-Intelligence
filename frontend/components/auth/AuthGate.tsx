@@ -9,19 +9,10 @@ import {
 } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
-
-
-const PUBLIC_PATHS = new Set([
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/verify-reset-otp",
-    "/reset-password",
-]);
-
-const ADMIN_PATHS = new Set([
-    "/export",
-]);
+import {
+    isAdminPath,
+    isPublicPath,
+} from "@/lib/route-access";
 
 
 export default function AuthGate({
@@ -39,13 +30,9 @@ export default function AuthGate({
         isAdmin,
     } = useAuth();
 
-    const isPublic = PUBLIC_PATHS.has(
-        pathname
-    );
+    const isPublic = isPublicPath(pathname);
 
-    const isAdminPath = ADMIN_PATHS.has(
-        pathname
-    );
+    const adminOnly = isAdminPath(pathname);
 
 
     useEffect(() => {
@@ -70,7 +57,7 @@ export default function AuthGate({
 
         if (
             user
-            && isAdminPath
+            && adminOnly
             && !isAdmin
         ) {
 
@@ -80,7 +67,7 @@ export default function AuthGate({
 
     }, [
         isAdmin,
-        isAdminPath,
+        adminOnly,
         isPublic,
         loading,
         router,
@@ -94,7 +81,7 @@ export default function AuthGate({
         || (!isPublic && !user)
         || (
             Boolean(user)
-            && isAdminPath
+            && adminOnly
             && !isAdmin
         )
     );

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
     LogOut,
     Menu,
@@ -8,6 +9,11 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationBell from "@/components/layout/NotificationBell";
+import {
+    accountInitials,
+    accountRoleLabel,
+    PROFILE_PATH,
+} from "@/lib/account-ux";
 
 
 type NavbarProps = {
@@ -24,18 +30,13 @@ export default function Navbar({
         logout,
     } = useAuth();
 
-    const initials = user?.full_name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join("") || "AI";
-
-    const roleLabel = (
-        user?.role === "admin"
-            ? "Administrator"
-            : "Recruiter"
+    const initials = accountInitials(
+        user?.full_name ?? ""
     );
+
+    const roleLabel = user
+        ? accountRoleLabel(user.role)
+        : "Recruiter";
 
     return (
 
@@ -142,11 +143,20 @@ export default function Navbar({
                 />
 
 
-                <div
+                <Link
+                    href={PROFILE_PATH}
+                    aria-label={`View profile for ${user?.full_name ?? "ATS User"}`}
                     className="
                         flex
                         items-center
                         gap-3
+                        rounded-xl
+                        p-1
+                        transition
+                        hover:bg-gray-100
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-blue-500
                     "
                 >
 
@@ -210,7 +220,7 @@ export default function Navbar({
 
                     </div>
 
-                </div>
+                </Link>
 
 
                 <button
