@@ -5,9 +5,11 @@ import { api } from "./api";
 import type {
     AccessTokenResponse,
     AuthUser,
+    ChangePasswordRequest,
     LoginCredentials,
     MessageResponse,
     PasswordResetTokenResponse,
+    ProfileUpdateRequest,
     RegisterCredentials,
 } from "@/types/auth";
 
@@ -248,5 +250,86 @@ export async function resetPassword(
                 "Unable to reset your password."
             )
         );
+    }
+}
+
+
+export async function updateCurrentUser(
+    data: ProfileUpdateRequest
+): Promise<AuthUser> {
+    try {
+        const response = await api.patch<AuthUser>(
+            "/auth/me",
+            data
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(authErrorMessage(
+            error,
+            "Unable to update your profile."
+        ));
+    }
+}
+
+
+export async function uploadProfilePhoto(
+    photo: File
+): Promise<AuthUser> {
+    const formData = new FormData();
+    formData.append("photo", photo);
+
+    try {
+        const response = await api.post<AuthUser>(
+            "/auth/me/profile-photo",
+            formData
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(authErrorMessage(
+            error,
+            "Unable to upload the profile photo."
+        ));
+    }
+}
+
+
+export async function removeProfilePhoto(): Promise<AuthUser> {
+    try {
+        const response = await api.delete<AuthUser>(
+            "/auth/me/profile-photo"
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(authErrorMessage(
+            error,
+            "Unable to remove the profile photo."
+        ));
+    }
+}
+
+
+export async function getProfilePhoto(): Promise<Blob> {
+    const response = await api.get<Blob>(
+        "/auth/me/profile-photo",
+        { responseType: "blob" }
+    );
+    return response.data;
+}
+
+
+export async function changePassword(
+    data: ChangePasswordRequest
+): Promise<MessageResponse> {
+    try {
+        const response = await api.post<MessageResponse>(
+            "/auth/change-password",
+            data
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(authErrorMessage(
+            error,
+            "Unable to change your password."
+        ));
     }
 }

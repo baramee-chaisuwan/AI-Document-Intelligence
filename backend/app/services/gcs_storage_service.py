@@ -3,6 +3,7 @@ import ipaddress
 import re
 import threading
 import unicodedata
+from uuid import uuid4
 from dataclasses import dataclass
 from typing import Mapping
 from urllib.parse import quote
@@ -33,6 +34,12 @@ _CONTROL_CHARACTER_PATTERN = re.compile(
     r"[\x00-\x1f\x7f]"
 )
 _MAX_METADATA_BYTES = 1800
+_MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
+_PROFILE_IMAGE_TYPES = {
+    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+    "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
+    "image/webp": ("webp", None),
+}
 
 _storage_client = None
 _client_lock = threading.Lock()
@@ -63,6 +70,13 @@ class StoredGCSObject:
     bucket: str
     key: str
     etag: str | None = None
+
+
+@dataclass(frozen=True)
+class StoredProfileImage:
+    bucket: str
+    key: str
+    content_type: str
 
 
 def get_storage_client():
@@ -274,6 +288,102 @@ def get_object(
     )
 
 
+def put_profile_image(
+    *,
+    user_id: int,
+    content: bytes,
+    content_type: str | None
+) -> StoredProfileImage:
+    """Upload one validated private profile image for a user."""
+
+    safe_user_id = _validate_profile_user_id(user_id)
+    safe_content_type, extension = _validate_profile_image(
+        content,
+        content_type
+    )
+    bucket_name, prefix = _validated_storage_config()
+    object_key = (
+        f"{prefix}/profile-images/{safe_user_id}/"
+        f"{uuid4().hex}.{extension}"
+    )
+
+    try:
+        bucket = get_storage_client().bucket(bucket_name)
+        blob = bucket.blob(object_key)
+        blob.metadata = {"owner-user-id": safe_user_id}
+        blob.upload_from_string(
+            content,
+            content_type=safe_content_type,
+            if_generation_match=0
+        )
+    except (GoogleAuthError, GoogleAPIError) as error:
+        raise GCSOperationError(
+            _operation_error_message("profile upload", error)
+        ) from error
+
+    return StoredProfileImage(
+        bucket=bucket_name,
+        key=object_key,
+        content_type=safe_content_type
+    )
+
+
+def get_profile_image(
+    object_key: str,
+    user_id: int
+) -> tuple[bytes, str]:
+    """Download only the authenticated user's stored profile image."""
+
+    bucket_name, prefix = _validated_storage_config()
+    safe_key = _validate_profile_object_key(
+        object_key,
+        prefix,
+        user_id
+    )
+    content_type = _profile_content_type_from_key(safe_key)
+
+    try:
+        blob = get_storage_client().bucket(
+            bucket_name
+        ).blob(safe_key)
+        content = blob.download_as_bytes()
+    except NotFound as error:
+        raise GCSOperationError(
+            "GCS profile download failed (404)"
+        ) from error
+    except (GoogleAuthError, GoogleAPIError) as error:
+        raise GCSOperationError(
+            _operation_error_message("profile download", error)
+        ) from error
+
+    return _validate_content(content), content_type
+
+
+def delete_profile_image(
+    object_key: str,
+    user_id: int
+) -> None:
+    """Delete only an object inside the authenticated user's image path."""
+
+    bucket_name, prefix = _validated_storage_config()
+    safe_key = _validate_profile_object_key(
+        object_key,
+        prefix,
+        user_id
+    )
+
+    try:
+        get_storage_client().bucket(
+            bucket_name
+        ).blob(safe_key).delete()
+    except NotFound:
+        return
+    except (GoogleAuthError, GoogleAPIError) as error:
+        raise GCSOperationError(
+            _operation_error_message("profile delete", error)
+        ) from error
+
+
 def _validated_storage_config() -> tuple[str, str]:
 
     bucket = (
@@ -363,6 +473,91 @@ def _validate_document_id(
         )
 
     return normalized
+
+
+def _validate_profile_user_id(user_id: int) -> str:
+    if (
+        isinstance(user_id, bool)
+        or not isinstance(user_id, int)
+        or user_id <= 0
+    ):
+        raise GCSValidationError("user_id is invalid")
+
+    return str(user_id)
+
+
+def _validate_profile_image(
+    content: bytes,
+    content_type: str | None
+) -> tuple[str, str]:
+    payload = _validate_content(content)
+    normalized_type = (
+        content_type.strip().casefold()
+        if isinstance(content_type, str)
+        else ""
+    )
+
+    if normalized_type not in _PROFILE_IMAGE_TYPES:
+        raise GCSValidationError(
+            "Profile image must be JPEG, PNG, or WebP"
+        )
+    if len(payload) > _MAX_PROFILE_IMAGE_BYTES:
+        raise GCSValidationError(
+            "Profile image must not exceed 5 MB"
+        )
+
+    extension, signature = _PROFILE_IMAGE_TYPES[normalized_type]
+    valid_signature = (
+        payload.startswith(signature)
+        if signature is not None
+        else (
+            len(payload) >= 12
+            and payload.startswith(b"RIFF")
+            and payload[8:12] == b"WEBP"
+        )
+    )
+    if not valid_signature:
+        raise GCSValidationError(
+            "Profile image content does not match its MIME type"
+        )
+
+    return normalized_type, extension
+
+
+def _validate_profile_object_key(
+    object_key: str,
+    prefix: str,
+    user_id: int
+) -> str:
+    safe_key = _validate_object_key(object_key, prefix)
+    owner_prefix = (
+        f"{prefix}/profile-images/"
+        f"{_validate_profile_user_id(user_id)}/"
+    )
+
+    if not safe_key.startswith(owner_prefix):
+        raise GCSValidationError(
+            "Profile image key is not owned by this user"
+        )
+
+    _profile_content_type_from_key(safe_key)
+    return safe_key
+
+
+def _profile_content_type_from_key(object_key: str) -> str:
+    extension = object_key.rsplit(".", 1)[-1].casefold()
+    content_types = {
+        "jpg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+    }
+
+    if extension not in content_types:
+        raise GCSValidationError(
+            "Profile image key has an invalid type"
+        )
+
+    return content_types[extension]
 
 
 def _normalize_filename(

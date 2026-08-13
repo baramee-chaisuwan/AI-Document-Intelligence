@@ -6,6 +6,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    computed_field,
     field_validator,
     model_validator
 )
@@ -123,6 +124,66 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    profile_image_key: str | None = Field(
+        default=None,
+        exclude=True
+    )
+
+    @computed_field
+    @property
+    def has_profile_image(self) -> bool:
+        return bool(self.profile_image_key)
+
+
+class UserProfileUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str = Field(
+        min_length=1,
+        max_length=255
+    )
+
+    @field_validator("full_name")
+    @classmethod
+    def normalize_full_name(cls, value: str):
+        return UserRegisterRequest.normalize_full_name(
+            value
+        )
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(
+        min_length=1,
+        max_length=72
+    )
+    new_password: str = Field(
+        min_length=8,
+        max_length=72
+    )
+    confirm_password: str = Field(
+        min_length=8,
+        max_length=72
+    )
+
+    @field_validator(
+        "current_password",
+        "new_password",
+        "confirm_password"
+    )
+    @classmethod
+    def validate_password_bytes(cls, value: str):
+        return UserRegisterRequest.validate_password_bytes(
+            value
+        )
+
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.new_password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+
+        return self
 
 
 class AccessTokenResponse(BaseModel):

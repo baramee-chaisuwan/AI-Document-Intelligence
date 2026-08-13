@@ -9,8 +9,8 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationBell from "@/components/layout/NotificationBell";
+import ProfileAvatar from "@/components/account/ProfileAvatar";
 import {
-    accountInitials,
     accountRoleLabel,
     PROFILE_PATH,
 } from "@/lib/account-ux";
@@ -29,10 +29,6 @@ export default function Navbar({
         user,
         logout,
     } = useAuth();
-
-    const initials = accountInitials(
-        user?.full_name ?? ""
-    );
 
     const roleLabel = user
         ? accountRoleLabel(user.role)
@@ -160,21 +156,7 @@ export default function Navbar({
                     "
                 >
 
-                    <div
-                        className="
-                            flex
-                            h-10
-                            w-10
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-blue-600
-                            font-bold
-                            text-white
-                        "
-                    >
-                        {initials}
-                    </div>
+                    {user && <ProfileAvatar user={user} />}
 
 
                     <div

@@ -109,6 +109,11 @@ class User(Base):
         onupdate=utc_now
     )
 
+    profile_image_key = Column(
+        String(1024),
+        nullable=True
+    )
+
     password_reset_tokens = relationship(
         "PasswordResetToken",
         back_populates="user",

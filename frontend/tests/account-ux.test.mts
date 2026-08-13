@@ -6,6 +6,8 @@ import {
     passwordInputType,
     passwordToggleLabel,
     profileDetails,
+    validatePasswordChange,
+    validateProfilePhoto,
     PROFILE_PATH,
 } from "../lib/account-ux.ts";
 import { isPublicPath } from "../lib/route-access.ts";
@@ -20,6 +22,7 @@ const user: AuthUser = {
     is_active: true,
     created_at: "2026-08-13T00:00:00Z",
     updated_at: "2026-08-13T00:00:00Z",
+    has_profile_image: false,
 };
 
 
@@ -36,8 +39,24 @@ test("authenticated profile presents only safe existing account fields", () => {
         { label: "Name", value: "Baramee Chaisuwan" },
         { label: "Email", value: "recruiter@example.com" },
         { label: "Role", value: "Administrator" },
+        { label: "Status", value: "Active" },
+        { label: "Member since", value: "Aug 13, 2026" },
     ]);
     assert.equal(accountInitials(user.full_name), "BC");
+});
+
+
+test("profile photo validation accepts supported images within 5 MB", () => {
+    assert.equal(validateProfilePhoto({ type: "image/png", size: 1024 }), null);
+    assert.match(validateProfilePhoto({ type: "image/gif", size: 1024 }) ?? "", /JPEG/);
+    assert.match(validateProfilePhoto({ type: "image/jpeg", size: 6 * 1024 * 1024 }) ?? "", /5 MB/);
+});
+
+
+test("password change validation preserves secure account behavior", () => {
+    assert.equal(validatePasswordChange("old", "NewPassword123!", "NewPassword123!"), null);
+    assert.match(validatePasswordChange("old", "short", "short") ?? "", /8 characters/);
+    assert.match(validatePasswordChange("old", "NewPassword123!", "Different123!") ?? "", /do not match/);
 });
 
 

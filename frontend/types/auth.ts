@@ -9,6 +9,7 @@ export interface AuthUser {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    has_profile_image: boolean;
 }
 
 
@@ -41,4 +42,16 @@ export interface PasswordResetTokenResponse {
     reset_token: string;
     token_type: "password_reset";
     expires_in: number;
+}
+
+
+export interface ProfileUpdateRequest {
+    full_name: string;
+}
+
+
+export interface ChangePasswordRequest {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
 }

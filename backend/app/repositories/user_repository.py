@@ -63,3 +63,15 @@ def create_user(
     db.refresh(user)
 
     return user
+
+
+def save_user(
+    db: Session,
+    user: User
+):
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
