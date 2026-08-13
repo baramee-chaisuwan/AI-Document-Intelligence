@@ -4,15 +4,19 @@ import test from "node:test";
 import {
     AI_ANALYSIS_SCORE_LABEL,
     JOB_MATCH_SCORE_LABEL,
-    TECHNICAL_PROFILE_SCORE_LABEL,
-    TECHNICAL_RULE_SCORE_LABEL,
+    scoreLabels,
 } from "../lib/score-labels.ts";
 
 
-test("standalone technical scores are distinct from job match score", () => {
-    assert.equal(TECHNICAL_PROFILE_SCORE_LABEL, "Technical Profile Score");
-    assert.equal(TECHNICAL_RULE_SCORE_LABEL, "Technical Rule Score");
+test("versioned profile scores remain distinct from job match score", () => {
+    const legacy = scoreLabels({ python: 8 });
+    const profile = scoreLabels({ score_version: "profile_v2" });
+
+    assert.equal(legacy.profile, "Legacy Technical Profile Score");
+    assert.equal(legacy.rule, "Legacy Technical Rule Score");
+    assert.equal(profile.profile, "Candidate Profile Score");
+    assert.equal(profile.rule, "Profile Rule Score");
     assert.equal(AI_ANALYSIS_SCORE_LABEL, "AI Analysis Score");
     assert.equal(JOB_MATCH_SCORE_LABEL, "Job Match Score");
-    assert.notEqual(TECHNICAL_PROFILE_SCORE_LABEL, JOB_MATCH_SCORE_LABEL);
+    assert.notEqual(profile.profile, JOB_MATCH_SCORE_LABEL);
 });

@@ -41,6 +41,7 @@ def semantic_search(query: str, db):
                     "skill_score": candidate.skill_score,
                     "rule_score": candidate.rule_score,
                     "ai_score": candidate.ai_score,
+                    "score_breakdown": candidate.score_breakdown or {},
                     "distance": round(distance, 4)
                 }
             )

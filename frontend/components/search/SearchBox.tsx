@@ -22,6 +22,7 @@ import {
 import type {
     SearchResult,
 } from "@/services/search";
+import { scoreLabels } from "@/lib/score-labels";
 
 
 const MAX_QUERY_LENGTH = 500;
@@ -552,6 +553,9 @@ export default function SearchBox() {
                                         candidate.distance
                                     )
                                 );
+                                const labels = scoreLabels(
+                                    candidate.score_breakdown
+                                );
 
 
                                 return (
@@ -711,14 +715,14 @@ export default function SearchBox() {
                                         >
 
                                             <ScoreMetric
-                                                title="Technical Profile Score"
+                                                title={labels.profile}
                                                 value={
                                                     candidate.skill_score
                                                 }
                                             />
 
                                             <ScoreMetric
-                                                title="Technical Rule Score"
+                                                title={labels.rule}
                                                 value={
                                                     candidate.rule_score
                                                 }

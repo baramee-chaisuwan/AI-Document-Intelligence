@@ -1,5 +1,5 @@
 from app.services.scoring_service import (
-    calculate_skill_score
+    calculate_legacy_technical_score
 )
 
 def test_calculate_skill_score_ai_engineer():
@@ -43,7 +43,7 @@ def test_calculate_skill_score_ai_engineer():
     }
 
 
-    result = calculate_skill_score(
+    result = calculate_legacy_technical_score(
         resume_data
     )
 

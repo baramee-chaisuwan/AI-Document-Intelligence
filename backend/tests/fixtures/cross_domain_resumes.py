@@ -9,8 +9,14 @@ CROSS_DOMAIN_RESUMES = {
         "domain_expertise": ["Natural language processing"],
         "leadership_experience": ["Mentored two junior engineers"],
         "languages": ["English"],
-        "education": [],
-        "experience": [],
+        "education": [{"institution": "State University", "degree": "BSc Computer Science"}],
+        "experience": [{
+            "title": "AI Engineer",
+            "company": "Synthetic AI Labs",
+            "start_date": "2021-01",
+            "end_date": "2025-12",
+            "description": ["Delivered production AI services", "Mentored engineers"],
+        }],
         "projects": [{
             "name": "Document Intelligence",
             "description": ["Built a production RAG platform"],
@@ -27,8 +33,14 @@ CROSS_DOMAIN_RESUMES = {
         "domain_expertise": ["Enterprise network architecture"],
         "leadership_experience": ["Led infrastructure incident response"],
         "languages": [],
-        "education": [],
-        "experience": [],
+        "education": [{"institution": "Technical College", "degree": "Network Engineering"}],
+        "experience": [{
+            "title": "Senior Network Engineer",
+            "company": "Synthetic Networks",
+            "start_date": "2019-01",
+            "end_date": "2025-12",
+            "description": ["Owned regional infrastructure", "Led incident response"],
+        }],
         "projects": [],
     },
     "project_manager": {
@@ -41,8 +53,14 @@ CROSS_DOMAIN_RESUMES = {
         "domain_expertise": ["Program governance"],
         "leadership_experience": ["Led a cross-functional team of 18"],
         "languages": [],
-        "education": [],
-        "experience": [],
+        "education": [{"institution": "Business School", "degree": "Business Administration"}],
+        "experience": [{
+            "title": "Project Manager",
+            "company": "Synthetic Programs",
+            "start_date": "2018-01",
+            "end_date": "2025-12",
+            "description": ["Delivered a $4M program", "Managed delivery risks"],
+        }],
         "projects": [],
     },
     "marketing_manager": {
@@ -55,8 +73,14 @@ CROSS_DOMAIN_RESUMES = {
         "domain_expertise": ["Demand generation"],
         "leadership_experience": ["Managed a team of six marketers"],
         "languages": [],
-        "education": [],
-        "experience": [],
+        "education": [{"institution": "Commerce University", "degree": "Marketing"}],
+        "experience": [{
+            "title": "Marketing Manager",
+            "company": "Synthetic Growth",
+            "start_date": "2019-01",
+            "end_date": "2025-12",
+            "description": ["Owned integrated campaigns", "Managed six marketers"],
+        }],
         "projects": [],
     },
     "accountant": {
@@ -69,10 +93,71 @@ CROSS_DOMAIN_RESUMES = {
         "domain_expertise": ["Statutory accounting"],
         "leadership_experience": ["Supervised two staff accountants"],
         "languages": [],
-        "education": [],
-        "experience": [],
+        "education": [{"institution": "Commerce University", "degree": "Accounting"}],
+        "experience": [{
+            "title": "Senior Accountant",
+            "company": "Synthetic Finance",
+            "start_date": "2017-01",
+            "end_date": "2025-12",
+            "description": ["Led audit support", "Owned month-end reporting"],
+        }],
         "projects": [],
     },
+}
+
+
+SENIOR_HR_RESUME = {
+    "name": "Taylor Morgan",
+    "skills": [
+        "Talent acquisition",
+        "Employee relations",
+        "Workforce planning",
+        "Stakeholder management",
+    ],
+    "tools": ["Workday", "Greenhouse"],
+    "certifications": ["SHRM-SCP"],
+    "achievements": [
+        "Reduced time-to-hire by 38%",
+        "Improved annual retention by 16%",
+    ],
+    "responsibilities": [
+        "Owned regional people strategy and recruiting operations",
+        "Managed workforce budgets and executive stakeholders",
+    ],
+    "domain_expertise": ["Human resources", "Talent strategy"],
+    "leadership_experience": [
+        "Led a team of 12 HR and recruiting professionals",
+        "Advised the executive leadership team",
+    ],
+    "languages": ["English"],
+    "education": [{
+        "institution": "Business University",
+        "degree": "Master of Human Resource Management",
+    }],
+    "experience": [
+        {
+            "title": "HR Director",
+            "company": "Synthetic Holdings",
+            "start_date": "2019-01",
+            "end_date": "2025-12",
+            "description": [
+                "Led talent acquisition and employee relations",
+                "Owned workforce planning and HR operations",
+                "Partnered with executive stakeholders",
+            ],
+        },
+        {
+            "title": "Senior HR Manager",
+            "company": "Synthetic Group",
+            "start_date": "2014-01",
+            "end_date": "2018-12",
+            "description": [
+                "Managed recruiting and retention programs",
+                "Developed people managers across the business",
+            ],
+        },
+    ],
+    "projects": [],
 }
 
 

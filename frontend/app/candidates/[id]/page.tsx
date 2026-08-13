@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 import {
     AI_ANALYSIS_SCORE_LABEL,
-    TECHNICAL_PROFILE_SCORE_LABEL,
-    TECHNICAL_RULE_SCORE_LABEL,
+    scoreLabels,
 } from "@/lib/score-labels";
 
 import AppLayout from "@/components/layout/AppLayout";
@@ -229,6 +228,9 @@ export default function CandidateDetailPage() {
     const aiScore = candidate.ai_score ?? 0;
     const skillScore = candidate.skill_score ?? 0;
     const ruleScore = candidate.rule_score ?? 0;
+    const labels = scoreLabels(
+        candidate.score_breakdown
+    );
 
 
     return (
@@ -427,12 +429,12 @@ export default function CandidateDetailPage() {
             >
 
                 <ScoreCard
-                    title={TECHNICAL_PROFILE_SCORE_LABEL}
+                    title={labels.profile}
                     value={skillScore}
                 />
 
                 <ScoreCard
-                    title={TECHNICAL_RULE_SCORE_LABEL}
+                    title={labels.rule}
                     value={ruleScore}
                 />
 

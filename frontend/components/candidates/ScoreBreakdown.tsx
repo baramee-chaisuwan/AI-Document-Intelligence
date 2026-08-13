@@ -1,7 +1,10 @@
 import type {
     ScoreBreakdown as ScoreBreakdownType,
 } from "@/services/candidate";
-import { TECHNICAL_RULE_SCORE_LABEL } from "@/lib/score-labels";
+import {
+    scoreLabels,
+    scoreVersion,
+} from "@/lib/score-labels";
 
 
 type ScoreBreakdownProps = {
@@ -9,7 +12,13 @@ type ScoreBreakdownProps = {
 };
 
 
-const SCORE_CONFIG = {
+type ScoreCategoryConfig = {
+    label: string;
+    maxScore: number;
+};
+
+
+const SCORE_CONFIG: Record<string, ScoreCategoryConfig> = {
     python: {
         label: "Python",
         maxScore: 8,
@@ -53,10 +62,39 @@ const SCORE_CONFIG = {
 };
 
 
-type ScoreKey = keyof typeof SCORE_CONFIG;
+const PROFILE_SCORE_CONFIG: Record<string, ScoreCategoryConfig> = {
+    professional_experience: {
+        label: "Professional Experience",
+        maxScore: 25,
+    },
+    achievements: {
+        label: "Achievements",
+        maxScore: 20,
+    },
+    competencies: {
+        label: "Competencies",
+        maxScore: 20,
+    },
+    certifications: {
+        label: "Certifications",
+        maxScore: 10,
+    },
+    education: {
+        label: "Education",
+        maxScore: 10,
+    },
+    leadership: {
+        label: "Leadership",
+        maxScore: 10,
+    },
+    evidence_quality: {
+        label: "Evidence Quality",
+        maxScore: 5,
+    },
+};
 
 
-const SCORE_ORDER: ScoreKey[] = [
+const SCORE_ORDER = [
     "python",
     "sql",
     "backend",
@@ -131,10 +169,21 @@ export default function ScoreBreakdown({
     breakdown,
 }: ScoreBreakdownProps) {
 
-    const entries = SCORE_ORDER.map(
+    const isProfileV2 = scoreVersion(
+        breakdown
+    ) === "profile_v2";
+    const labels = scoreLabels(breakdown);
+    const activeConfig = isProfileV2
+        ? PROFILE_SCORE_CONFIG
+        : SCORE_CONFIG;
+    const scoreOrder = isProfileV2
+        ? Object.keys(PROFILE_SCORE_CONFIG)
+        : SCORE_ORDER;
+
+    const entries = scoreOrder.map(
         (key) => {
 
-            const config = SCORE_CONFIG[key];
+            const config = activeConfig[key];
 
             const rawValue = Number(
                 breakdown?.[key] ?? 0
@@ -216,7 +265,7 @@ export default function ScoreBreakdown({
                             text-gray-900
                         "
                     >
-                        Rule-Based Score Breakdown
+                        {labels.breakdown}
                     </h3>
 
                     <p
@@ -252,7 +301,7 @@ export default function ScoreBreakdown({
                             text-gray-500
                         "
                     >
-                        {TECHNICAL_RULE_SCORE_LABEL}
+                        {labels.rule}
                     </p>
 
                     <p

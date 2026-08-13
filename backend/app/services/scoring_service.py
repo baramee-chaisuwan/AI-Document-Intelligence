@@ -1,5 +1,18 @@
 import re
 
+
+PROFILE_SCORE_VERSION = "profile_v2"
+
+PROFILE_CATEGORY_MAXIMUMS = {
+    "professional_experience": 25,
+    "achievements": 20,
+    "competencies": 20,
+    "certifications": 10,
+    "education": 10,
+    "leadership": 10,
+    "evidence_quality": 5,
+}
+
 AI_KEYWORDS = [
     "artificial intelligence",
     "machine learning",
@@ -310,7 +323,7 @@ def has_meaningful_project(
         or technologies
     )
 
-def calculate_skill_score(
+def calculate_legacy_technical_score(
     resume_data
 ):
 
@@ -753,3 +766,187 @@ def calculate_skill_score(
         "skill_score": total,
         "score_breakdown": breakdown
     }
+
+
+def calculate_skill_score(
+    resume_data
+):
+    """Calculate the domain-neutral deterministic profile_v2 score."""
+
+    if not isinstance(resume_data, dict):
+        return _profile_score_result({})
+
+    experience = _dictionary_list(
+        resume_data.get("experience")
+    )
+    responsibilities = _unique_evidence(
+        resume_data.get("responsibilities")
+    )
+    achievements = _unique_evidence(
+        resume_data.get("achievements")
+    )
+    skills = _unique_evidence(
+        resume_data.get("skills")
+    )
+    tools = _unique_evidence(
+        resume_data.get("tools")
+    )
+    domain_expertise = _unique_evidence(
+        resume_data.get("domain_expertise")
+    )
+    certifications = _unique_evidence(
+        resume_data.get("certifications")
+    )
+    education = _dictionary_list(
+        resume_data.get("education")
+    )
+    leadership = _unique_evidence(
+        resume_data.get("leadership_experience")
+    )
+
+    meaningful_experience = [
+        item
+        for item in experience
+        if has_meaningful_experience(item)
+    ]
+    description_count = sum(
+        len(normalize_list(item.get("description")))
+        for item in meaningful_experience
+    )
+    date_evidence_count = sum(
+        bool(normalize_text(item.get(field)))
+        for item in meaningful_experience
+        for field in ("start_date", "end_date")
+    )
+
+    professional_experience = min(
+        len(meaningful_experience) * 5,
+        10,
+    )
+    professional_experience += min(
+        description_count,
+        5,
+    )
+    professional_experience += min(
+        len(responsibilities) * 2,
+        5,
+    )
+    professional_experience += min(
+        date_evidence_count,
+        5,
+    )
+
+    achievement_score = min(
+        len(achievements) * 4,
+        16,
+    )
+    if any(_contains_quantified_evidence(item) for item in achievements):
+        achievement_score += 4
+    achievement_score = min(achievement_score, 20)
+
+    competencies = min(
+        len(skills) * 2
+        + len(domain_expertise) * 2
+        + len(tools),
+        20,
+    )
+    certification_score = min(
+        len(certifications) * 5,
+        10,
+    )
+    education_score = min(
+        sum(
+            5
+            for item in education
+            if normalize_text(item.get("institution"))
+            or normalize_text(item.get("degree"))
+        ),
+        10,
+    )
+    leadership_score = min(
+        len(leadership) * 5,
+        10,
+    )
+
+    evidence_signals = (
+        bool(meaningful_experience and description_count),
+        bool(achievements),
+        bool(skills or tools or domain_expertise),
+        bool(certifications or education),
+        bool(leadership or responsibilities),
+    )
+    evidence_quality = sum(evidence_signals)
+
+    return _profile_score_result({
+        "professional_experience": professional_experience,
+        "achievements": achievement_score,
+        "competencies": competencies,
+        "certifications": certification_score,
+        "education": education_score,
+        "leadership": leadership_score,
+        "evidence_quality": evidence_quality,
+    })
+
+
+def _profile_score_result(categories):
+    breakdown = {
+        "score_version": PROFILE_SCORE_VERSION,
+        **{
+            category: min(
+                max(int(categories.get(category, 0)), 0),
+                maximum,
+            )
+            for category, maximum
+            in PROFILE_CATEGORY_MAXIMUMS.items()
+        },
+    }
+    total = sum(
+        breakdown[category]
+        for category in PROFILE_CATEGORY_MAXIMUMS
+    )
+
+    return {
+        "skill_score": min(total, 100),
+        "score_breakdown": breakdown,
+    }
+
+
+def _dictionary_list(value):
+    if not isinstance(value, list):
+        return []
+
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _unique_evidence(value):
+    if not isinstance(value, list):
+        return []
+
+    result = []
+    seen = set()
+
+    for item in value:
+        text = " ".join(str(item or "").split())
+        key = text.casefold()
+
+        if not text or key in seen:
+            continue
+
+        seen.add(key)
+        result.append(text)
+
+    return result
+
+
+def _contains_quantified_evidence(value):
+    text = str(value or "")
+    patterns = (
+        r"\b\d+(?:\.\d+)?\s*%",
+        r"(?:\$|USD|EUR|GBP)\s*\d",
+        r"\b\d+(?:\.\d+)?\s*(?:million|billion)\b",
+    )
+
+    return any(
+        re.search(pattern, text, re.IGNORECASE)
+        for pattern in patterns
+    )

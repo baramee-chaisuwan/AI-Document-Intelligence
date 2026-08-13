@@ -7,7 +7,7 @@ from app.rag.prompt import recommendation_prompt, resume_summary_prompt
 from app.repositories.job_match_repository import CandidateMatchData
 from app.services import analyzer_service, extraction_service, gemini_service
 from app.services.job_matching_service import rank_candidates
-from app.services.scoring_service import calculate_skill_score
+from app.services.scoring_service import calculate_legacy_technical_score
 from tests.fixtures.cross_domain_resumes import (
     CROSS_DOMAIN_JOB_CASES,
     CROSS_DOMAIN_RESUMES,
@@ -156,7 +156,7 @@ def test_legacy_technical_rule_score_numeric_behavior_is_unchanged():
         }],
     }
 
-    assert calculate_skill_score(resume)["skill_score"] == 59
+    assert calculate_legacy_technical_score(resume)["skill_score"] == 59
 
 
 @pytest.mark.parametrize(

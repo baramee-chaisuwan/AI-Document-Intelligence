@@ -29,6 +29,7 @@ class SearchResult(BaseModel):
     skill_score: int
     rule_score: int
     ai_score: int
+    score_breakdown: dict
     distance: float
 
 

@@ -4,16 +4,25 @@ import { api } from "./api";
 
 
 export interface ScoreBreakdown {
-    python: number;
-    sql: number;
-    backend: number;
-    devops: number;
-    ai_domain: number;
-    data_domain: number;
-    backend_domain: number;
-    experience: number;
-    projects: number;
-    engineering_signal: number;
+    [key: string]: number | string | undefined;
+    score_version?: "profile_v2";
+    python?: number;
+    sql?: number;
+    backend?: number;
+    devops?: number;
+    ai_domain?: number;
+    data_domain?: number;
+    backend_domain?: number;
+    experience?: number;
+    projects?: number;
+    engineering_signal?: number;
+    professional_experience?: number;
+    achievements?: number;
+    competencies?: number;
+    certifications?: number;
+    education?: number;
+    leadership?: number;
+    evidence_quality?: number;
 }
 
 

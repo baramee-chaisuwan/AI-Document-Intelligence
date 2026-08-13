@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { api } from "./api";
+import type { ScoreBreakdown } from "./candidate";
 
 
 export type SearchResult = {
@@ -11,6 +12,7 @@ export type SearchResult = {
     skill_score: number;
     rule_score: number;
     ai_score: number;
+    score_breakdown: ScoreBreakdown;
     distance: number;
 };
 
