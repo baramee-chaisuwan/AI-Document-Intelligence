@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from google.api_core import exceptions as google_exceptions
+from google.generativeai import protos
 
 from app.services import extraction_service
 
@@ -32,6 +34,22 @@ def _extract(monkeypatch, response):
 
     result = extraction_service.extract_resume_data("Synthetic resume")
     return result, model.generate_content.call_args.kwargs["generation_config"]
+
+
+def _candidate_response(
+    *,
+    finish_reason="STOP",
+    parts=None,
+    prompt_block_reason="BLOCK_REASON_UNSPECIFIED",
+):
+    candidate = SimpleNamespace(
+        finish_reason=finish_reason,
+        content=SimpleNamespace(parts=parts if parts is not None else []),
+    )
+    return SimpleNamespace(
+        candidates=[candidate],
+        prompt_feedback=SimpleNamespace(block_reason=prompt_block_reason),
+    )
 
 
 def test_extracts_valid_json_with_structured_response_schema(monkeypatch):
@@ -82,16 +100,186 @@ def test_extracts_json_from_response_parts_when_text_is_unavailable(monkeypatch)
 
 def test_malformed_json_still_fails_with_controlled_error(monkeypatch):
     model = Mock()
-    model.generate_content.return_value = SimpleNamespace(
-        text='{"name": "Broken", "skills": ["HR",]}'
+    model.generate_content.return_value = _candidate_response(
+        parts=[SimpleNamespace(
+            text='{"name": "Broken", "skills": ["HR",]}'
+        )]
     )
     monkeypatch.setattr(extraction_service, "model", model)
 
     with pytest.raises(
         extraction_service.ResumeExtractionError,
         match="invalid JSON",
-    ):
+    ) as error:
         extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == "malformed_json"
+
+
+def test_empty_candidates_are_classified(monkeypatch):
+    model = Mock()
+    model.generate_content.return_value = SimpleNamespace(
+        candidates=[],
+        prompt_feedback=SimpleNamespace(
+            block_reason="BLOCK_REASON_UNSPECIFIED"
+        ),
+    )
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == "empty_candidates"
+
+
+def test_prompt_block_reason_is_classified_without_prompt_content(monkeypatch):
+    model = Mock()
+    model.generate_content.return_value = SimpleNamespace(
+        candidates=[],
+        prompt_feedback=SimpleNamespace(block_reason="SAFETY"),
+    )
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == "prompt_blocked"
+    assert error.value.safe_metadata["prompt_block_reason"] == "SAFETY"
+
+
+def test_empty_parts_are_classified(monkeypatch):
+    model = Mock()
+    model.generate_content.return_value = _candidate_response(parts=[])
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == "empty_parts"
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "category"),
+    [
+        (protos.Candidate.FinishReason.MAX_TOKENS, "max_tokens"),
+        (protos.Candidate.FinishReason.SAFETY, "safety"),
+        (protos.Candidate.FinishReason.SPII, "spii"),
+        (protos.Candidate.FinishReason.RECITATION, "recitation"),
+        (protos.Candidate.FinishReason.OTHER, "non_success_finish_reason"),
+    ],
+)
+def test_non_success_finish_reasons_are_classified(
+    monkeypatch,
+    finish_reason,
+    category,
+):
+    model = Mock()
+    model.generate_content.return_value = _candidate_response(
+        finish_reason=finish_reason,
+        parts=[],
+    )
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == category
+
+
+def test_non_text_parts_are_classified(monkeypatch):
+    model = Mock()
+    model.generate_content.return_value = _candidate_response(
+        parts=[SimpleNamespace(function_call=object())]
+    )
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    assert error.value.category == "no_text_parts"
+
+
+def test_upstream_timeout_uses_bounded_request_options(monkeypatch):
+    model = Mock()
+    model.generate_content.side_effect = google_exceptions.DeadlineExceeded(
+        "provider detail must remain private"
+    )
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    with pytest.raises(extraction_service.ResumeExtractionError) as error:
+        extraction_service.extract_resume_data("Synthetic resume")
+
+    request_options = model.generate_content.call_args.kwargs[
+        "request_options"
+    ]
+    assert error.value.category == "upstream_or_normalization_failure"
+    assert request_options["timeout"] == 60
+    assert request_options["retry"]._timeout == 90
+
+
+def test_diagnostics_are_timed_and_do_not_expose_content(monkeypatch):
+    private_resume = "PRIVATE RESUME CONTENT"
+    private_generated = "PRIVATE GENERATED CONTENT"
+    generated_payload = {
+        **TECHNICAL_RESUME,
+        "name": private_generated,
+    }
+    response = _candidate_response(
+        parts=[SimpleNamespace(text=json.dumps(generated_payload))]
+    )
+    events = []
+    model = Mock()
+    model.generate_content.return_value = response
+    monkeypatch.setattr(extraction_service, "model", model)
+    monkeypatch.setattr(
+        extraction_service,
+        "emit_event",
+        lambda event, **fields: events.append((event, fields)),
+    )
+
+    result = extraction_service.extract_resume_data(private_resume)
+
+    assert result["name"] == private_generated
+    event_text = repr(events)
+    assert private_resume not in event_text
+    assert private_generated not in event_text
+    upstream = next(
+        fields
+        for event, fields in events
+        if event == "gemini_resume_extraction_upstream"
+    )
+    parsing = next(
+        fields
+        for event, fields in events
+        if event == "gemini_resume_extraction_parsing"
+    )
+    assert upstream["duration_ms"] >= 0
+    assert parsing["duration_ms"] >= 0
+    assert parsing["candidate_count"] == 1
+    assert parsing["finish_reason"] == "STOP"
+    assert parsing["parts_count"] == 1
+    assert parsing["has_text_part"] is True
+
+
+def test_retry_diagnostic_contains_only_safe_attempt_metadata(monkeypatch):
+    events = []
+    retry_state = {"attempt_number": 1}
+    monkeypatch.setattr(
+        extraction_service,
+        "emit_event",
+        lambda event, **fields: events.append((event, fields)),
+    )
+    retry_policy = extraction_service._extraction_retry_policy(retry_state)
+
+    retry_policy._on_error(
+        google_exceptions.ServiceUnavailable("PRIVATE PROVIDER DETAIL")
+    )
+
+    assert retry_state["attempt_number"] == 2
+    assert events[0][1]["attempt_number"] == 1
+    assert events[0][1]["next_attempt_number"] == 2
+    assert events[0][1]["error_category"] == "ServiceUnavailable"
+    assert "PRIVATE PROVIDER DETAIL" not in repr(events)
 
 
 def test_new_cross_domain_fields_are_normalized(monkeypatch):
