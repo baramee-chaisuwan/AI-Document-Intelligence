@@ -150,7 +150,7 @@ export default function DashboardPage() {
             value: summary.total_candidates,
         },
         {
-            title: "Average AI Score",
+            title: "Average AI Analysis Score",
             value: summary.average_score,
         },
         {
@@ -161,7 +161,7 @@ export default function DashboardPage() {
             ),
         },
         {
-            title: "Top AI Score",
+            title: "Top AI Analysis Score",
             value: summary.top_score,
         },
     ];

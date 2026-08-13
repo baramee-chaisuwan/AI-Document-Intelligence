@@ -12,6 +12,11 @@ import {
     Bot,
     UserRound,
 } from "lucide-react";
+import {
+    AI_ANALYSIS_SCORE_LABEL,
+    TECHNICAL_PROFILE_SCORE_LABEL,
+    TECHNICAL_RULE_SCORE_LABEL,
+} from "@/lib/score-labels";
 
 import AppLayout from "@/components/layout/AppLayout";
 import ScoreBreakdown from "@/components/candidates/ScoreBreakdown";
@@ -403,7 +408,7 @@ export default function CandidateDetailPage() {
                         `}
                     >
                         <Bot size={21} />
-                        AI Score {aiScore}
+                        {AI_ANALYSIS_SCORE_LABEL} {aiScore}
                     </div>
 
                 </div>
@@ -422,17 +427,17 @@ export default function CandidateDetailPage() {
             >
 
                 <ScoreCard
-                    title="Final Skill Score"
+                    title={TECHNICAL_PROFILE_SCORE_LABEL}
                     value={skillScore}
                 />
 
                 <ScoreCard
-                    title="Rule Score"
+                    title={TECHNICAL_RULE_SCORE_LABEL}
                     value={ruleScore}
                 />
 
                 <ScoreCard
-                    title="AI Score"
+                    title={AI_ANALYSIS_SCORE_LABEL}
                     value={aiScore}
                 />
 

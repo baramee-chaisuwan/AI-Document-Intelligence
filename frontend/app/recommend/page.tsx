@@ -29,8 +29,8 @@ const MAX_REQUIREMENT_LENGTH = 2000;
 
 const EXAMPLE_REQUIREMENTS = [
     "AI Engineer with Python, RAG, LLM, FastAPI, and Docker experience",
-    "Backend Developer with Python, PostgreSQL, REST APIs, and CI/CD",
-    "Data Engineer with SQL, ETL, SSIS, data warehouse, and Python",
+    "Project Manager with PMP, budget ownership, risk management, and stakeholder leadership",
+    "Accountant with CPA, GAAP reporting, reconciliation, audit, and financial controls",
 ];
 
 
@@ -288,8 +288,8 @@ export default function RecommendPage() {
                                 text-gray-500
                             "
                         >
-                            Describe the role, required technologies,
-                            responsibilities, and preferred experience.
+                            Describe the role, required competencies,
+                            responsibilities, credentials, and preferred experience.
                         </p>
 
                     </div>

@@ -172,7 +172,7 @@ export default function TopCandidates({
                                 </th>
 
                                 <th className="pb-3 font-medium">
-                                    AI Score
+                                    AI Analysis Score
                                 </th>
 
                                 <th

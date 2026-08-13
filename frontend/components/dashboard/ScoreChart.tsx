@@ -81,7 +81,7 @@ export default function ScoreChart({
                             text-gray-900
                         "
                     >
-                        AI Score Distribution
+                        AI Analysis Score Distribution
                     </h3>
 
                     <p

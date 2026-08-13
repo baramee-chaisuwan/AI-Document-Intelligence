@@ -180,7 +180,7 @@ export default function RecentCandidates({
                                 </th>
 
                                 <th className="pb-3 font-medium">
-                                    AI Score
+                                    AI Analysis Score
                                 </th>
 
                                 <th className="pb-3 font-medium">

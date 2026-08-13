@@ -12,9 +12,9 @@ Resume:
 Summarize this candidate in 3 concise bullet points.
 
 Focus on:
-- Technical skills
-- Experience
-- Overall suitability
+- Relevant competencies and domain expertise
+- Experience, responsibilities, and measurable achievements
+- Tools, certifications, leadership, and projects when relevant
 """
 )
 
@@ -82,11 +82,11 @@ Job Requirement:
 
 Evaluation criteria:
 
-1. Required technical skills
-2. Relevant work experience
-3. Relevant project experience
-4. Technologies and tools explicitly mentioned
-5. Backend, cloud, deployment, or AI/ML capability when relevant
+1. Required role-specific competencies
+2. Relevant work experience and responsibilities
+3. Measurable achievements and outcomes
+4. Relevant tools, certifications, licenses, and domain expertise
+5. Leadership or project evidence when required by the role
 6. Evidence directly matching the submitted job requirement
 
 Match score guideline:
@@ -102,14 +102,16 @@ Instructions:
 - Compare all candidates included in the context.
 - Use only information explicitly stated in the resume context.
 - Do not use outside knowledge.
-- Do not invent candidate IDs, names, skills, projects, or experience.
+- Do not invent candidate IDs, names, competencies, achievements,
+  certifications, projects, or experience.
 - Select only a candidate that exists in the provided context.
-- Use exact project names when mentioning projects.
+- Use exact names when mentioning projects, certifications, or licenses.
 - Do not combine unrelated experiences.
-- Do not add technologies that are not explicitly mentioned.
+- Do not add tools, credentials, or domain expertise that are not
+  explicitly mentioned.
 - Every strength and relevant-experience item must be supported by resume evidence.
 - If candidates are similarly qualified, prefer the candidate whose evidence
-  most directly matches the required technologies and responsibilities.
+  most directly matches the role-specific requirements and responsibilities.
 - Avoid a score of 100 unless every important requirement is explicitly supported.
 - Populate the structured response schema only.
 """

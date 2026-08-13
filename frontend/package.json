@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:notifications && npm run test:account",
+    "test": "npm run test:notifications && npm run test:account && npm run test:score-terminology",
     "test:notifications": "node --experimental-strip-types --test tests/notification-state.test.mts",
-    "test:account": "node --experimental-strip-types --test tests/account-ux.test.mts"
+    "test:account": "node --experimental-strip-types --test tests/account-ux.test.mts",
+    "test:score-terminology": "node --experimental-strip-types --test tests/score-terminology.test.mts"
   },
   "dependencies": {
     "axios": "^1.18.1",

@@ -52,6 +52,30 @@ class ResumeData(BaseModel):
         default_factory=list
     )
 
+    tools: List[str] = Field(
+        default_factory=list
+    )
+
+    certifications: List[str] = Field(
+        default_factory=list
+    )
+
+    achievements: List[str] = Field(
+        default_factory=list
+    )
+
+    responsibilities: List[str] = Field(
+        default_factory=list
+    )
+
+    domain_expertise: List[str] = Field(
+        default_factory=list
+    )
+
+    leadership_experience: List[str] = Field(
+        default_factory=list
+    )
+
     languages: List[str] = Field(
         default_factory=list
     )

@@ -358,7 +358,7 @@ export default function CandidateTable({
                                     text-gray-600
                                 "
                             >
-                                AI Score
+                                AI Analysis Score
                             </th>
 
                             <th

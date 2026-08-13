@@ -346,9 +346,9 @@ export default function ChatBox() {
                                 text-gray-500
                             "
                         >
-                            Try asking who has Docker experience,
-                            which candidate knows FastAPI, or who
-                            best matches a specific technical skill.
+                            Try asking who has stakeholder-management
+                            experience, a CCNP or CPA certification, or
+                            evidence relevant to a specific requirement.
                         </p>
 
                     </div>

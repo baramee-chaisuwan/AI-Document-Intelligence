@@ -142,12 +142,12 @@ export default function AnalyticsPage() {
                 />
 
                 <Card
-                    title="Average AI Score"
+                    title="Average AI Analysis Score"
                     value={summary.average_score}
                 />
 
                 <Card
-                    title="Highest AI Score"
+                    title="Highest AI Analysis Score"
                     value={summary.top_score}
                 />
 

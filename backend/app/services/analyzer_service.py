@@ -29,15 +29,6 @@ RULE_WEIGHT = 0.8
 AI_WEIGHT = 0.2
 
 
-ALLOWED_ROLES = [
-    "Data Engineer",
-    "AI/ML Engineer",
-    "Backend Developer",
-    "Software Engineer",
-    "Machine Learning Engineer"
-]
-
-
 PRESENT_DATE_VALUES = [
     "present",
     "current",
@@ -329,9 +320,10 @@ def clean_recommended_roles(
         roles,
         list
     ):
-        return ALLOWED_ROLES[:3]
+        return []
 
     clean_roles = []
+    seen = set()
 
     for role in roles:
 
@@ -339,26 +331,26 @@ def clean_recommended_roles(
             role or ""
         ).strip()
 
-        if not role:
+        if (
+            not role
+            or len(role) > 100
+        ):
             continue
 
         if "intern" in role.lower():
             continue
 
-        for allowed_role in ALLOWED_ROLES:
+        comparison_key = role.casefold()
 
-            if role.lower() == allowed_role.lower():
+        if comparison_key in seen:
+            continue
 
-                if allowed_role not in clean_roles:
+        seen.add(comparison_key)
+        clean_roles.append(role)
 
-                    clean_roles.append(
-                        allowed_role
-                    )
+        if len(clean_roles) >= 5:
+            break
 
-                break
-
-    if not clean_roles:
-        return ALLOWED_ROLES[:3]
 
     return clean_roles
 
@@ -434,18 +426,21 @@ def analyze_resume(
     )
 
     prompt = f"""
-You are a technical recruiter reviewing a candidate resume.
+You are an experienced recruiter reviewing a candidate resume.
 
 Return only valid JSON.
 
 Rules:
 
-- Choose recommended roles only from this list:
-  {json.dumps(ALLOWED_ROLES)}
+- Recommend only roles directly supported by the resume evidence.
+- Infer role names from the candidate's documented competencies,
+  experience, responsibilities, achievements, tools, certifications,
+  leadership, and domain expertise.
 - Do not recommend internship roles.
-- Do not invent job titles.
+- Do not invent unsupported job titles or professional evidence.
 - Base all findings only on the provided resume data.
 - Keep strengths and improvement areas concise.
+- Evaluate evidence without favoring a particular professional domain.
 - ai_score must be an integer from 0 to 100.
 - Do not determine candidate seniority. The application calculates it.
 

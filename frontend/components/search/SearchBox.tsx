@@ -296,9 +296,9 @@ export default function SearchBox() {
                                 text-gray-500
                             "
                         >
-                            Search candidates by technical skills,
-                            technologies, experience, projects, or
-                            complete job requirements.
+                            Search candidates by competencies,
+                            experience, achievements, certifications, or
+                            complete job requirements across domains.
                         </p>
 
                     </div>
@@ -346,8 +346,8 @@ export default function SearchBox() {
 
                             }}
                             placeholder={
-                                "Example: Python, RAG, "
-                                + "FastAPI, Docker, Data Engineering"
+                                "Example: stakeholder management, CCNP, "
+                                + "GAAP, campaign strategy, or Python"
                             }
                             className="
                                 w-full
@@ -639,7 +639,7 @@ export default function SearchBox() {
                                                         )}
                                                         `}
                                                     >
-                                                        AI Score{" "}
+                                                        AI Analysis Score{" "}
                                                         {candidate.ai_score}
                                                     </span>
 
@@ -711,14 +711,14 @@ export default function SearchBox() {
                                         >
 
                                             <ScoreMetric
-                                                title="Final Skill Score"
+                                                title="Technical Profile Score"
                                                 value={
                                                     candidate.skill_score
                                                 }
                                             />
 
                                             <ScoreMetric
-                                                title="Rule Score"
+                                                title="Technical Rule Score"
                                                 value={
                                                     candidate.rule_score
                                                 }

@@ -20,6 +20,12 @@ model = genai.GenerativeModel(
 EMPTY_RESUME_DATA = {
     "name": "",
     "skills": [],
+    "tools": [],
+    "certifications": [],
+    "achievements": [],
+    "responsibilities": [],
+    "domain_expertise": [],
+    "leadership_experience": [],
     "languages": [],
     "education": [],
     "experience": [],
@@ -245,6 +251,36 @@ def normalize_resume_data(
                 "skills"
             )
         ),
+        "tools": normalize_string_list(
+            parsed.get(
+                "tools"
+            )
+        ),
+        "certifications": normalize_string_list(
+            parsed.get(
+                "certifications"
+            )
+        ),
+        "achievements": normalize_string_list(
+            parsed.get(
+                "achievements"
+            )
+        ),
+        "responsibilities": normalize_string_list(
+            parsed.get(
+                "responsibilities"
+            )
+        ),
+        "domain_expertise": normalize_string_list(
+            parsed.get(
+                "domain_expertise"
+            )
+        ),
+        "leadership_experience": normalize_string_list(
+            parsed.get(
+                "leadership_experience"
+            )
+        ),
         "languages": normalize_string_list(
             parsed.get(
                 "languages"
@@ -292,10 +328,13 @@ Rules:
 - Do not summarize or rewrite resume content.
 - Do not invent missing information.
 - Use an empty string or empty array when information is missing.
-- Preserve every work experience and technical project.
+- Preserve every work experience and every relevant project.
 - Preserve bullet points as separate array items.
-- Extract only concrete technical skills and technologies.
-- Do not include soft skills as technologies.
+- Extract evidence-supported professional competencies in skills.
+- Extract tools and technologies in tools, regardless of profession.
+- Preserve certifications, licenses, measurable achievements,
+  responsibilities, domain expertise, and leadership experience.
+- Do not force nontechnical evidence into a technology category.
 - Extract spoken languages only in the languages field.
 
 Return exactly this JSON structure:
@@ -303,6 +342,12 @@ Return exactly this JSON structure:
 {{
     "name": "",
     "skills": [],
+    "tools": [],
+    "certifications": [],
+    "achievements": [],
+    "responsibilities": [],
+    "domain_expertise": [],
+    "leadership_experience": [],
     "languages": [],
     "education": [
         {{

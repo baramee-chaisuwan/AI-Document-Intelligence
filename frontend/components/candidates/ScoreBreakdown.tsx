@@ -1,6 +1,7 @@
 import type {
     ScoreBreakdown as ScoreBreakdownType,
 } from "@/services/candidate";
+import { TECHNICAL_RULE_SCORE_LABEL } from "@/lib/score-labels";
 
 
 type ScoreBreakdownProps = {
@@ -251,7 +252,7 @@ export default function ScoreBreakdown({
                             text-gray-500
                         "
                     >
-                        Rule Score
+                        {TECHNICAL_RULE_SCORE_LABEL}
                     </p>
 
                     <p

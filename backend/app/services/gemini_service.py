@@ -27,7 +27,10 @@ RULES:
 - no bullets
 - no markdown
 - plain text only
-- MUST mention projects if present
+- summarize the most relevant competencies, experience,
+  responsibilities, achievements, tools, certifications,
+  leadership, and domain expertise supported by the resume
+- mention projects only when they are material to the candidate's evidence
 
 Resume:
 {text}
