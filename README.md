@@ -1,773 +1,238 @@
-# AI Document Intelligence — ATS Resume Intelligence Platform
+# AI Document Intelligence
 
-An AI-powered Applicant Tracking System that ingests PDF resumes, extracts structured
-candidate data with an LLM, scores candidates against job criteria, and answers
-recruiter questions through a retrieval-augmented HR assistant.
+### AI-Powered ATS Resume Intelligence Platform
 
-The system combines a FastAPI backend, a Next.js frontend, PostgreSQL with pgvector,
-and Google Gemini 2.5 Flash to turn unstructured resumes into searchable, scored,
-queryable candidate data — with hybrid (vector + keyword) retrieval powering both
-semantic search and the RAG assistant.
+AI Document Intelligence is a production-oriented Applicant Tracking System that turns PDF resumes into structured, searchable candidate records. It combines asynchronous document processing, Google Gemini extraction and analysis, profession-neutral candidate scoring, PostgreSQL/pgvector retrieval, explainable job matching, and recruiter-facing workflows in one full-stack application.
 
-## Links
+The platform is designed as an applied AI engineering project: LLM output is normalized and validated, deterministic scoring remains inspectable, retrieval is grounded in durable resume chunks, and cloud processing is observable and recoverable.
 
-- **Live Demo (Vercel)**  
-  https://ai-document-intelligence-nu.vercel.app
+## Live project
 
-- **Source Code (GitHub)**  
-  https://github.com/baramee-chaisuwan/AI-Document-Intelligence
+- [Live frontend](https://ai-document-intelligence-nu.vercel.app)
+- [Source repository](https://github.com/baramee-chaisuwan/AI-Document-Intelligence)
+- [Retrieval evaluation methodology](docs/evaluation.md)
 
-## Tech stack
+## Key features
 
-**Backend**
-- FastAPI
-- SQLAlchemy
-- PostgreSQL 16
-- pgvector
-- Alembic
+### Resume processing
 
-**AI**
-- Google Gemini 2.5 Flash
-- SentenceTransformer
-- RAG (Retrieval-Augmented Generation)
-- Hybrid Search (Vector + BM25)
+- Accepts PDF resumes through synchronous and asynchronous upload endpoints.
+- Validates filename, size, non-empty content, PDF signature, and extractable text.
+- Uses SHA-256 fingerprint reservations to reject exact duplicate files, including duplicates already being processed.
+- Stores private resume objects in Google Cloud Storage (GCS).
+- Persists durable processing jobs with `PENDING`, `PROCESSING`, `COMPLETED`, and `FAILED` states.
+- Publishes versioned Pub/Sub messages for asynchronous processing by an authenticated Cloud Run worker.
+- Commits the Candidate, resume chunks, processing-job association, and terminal completion state together.
 
-**Frontend**
-- Next.js 16
-- React 19
-- TypeScript
+### Structured AI extraction
 
-**Infrastructure**
-- Docker
-- Google Cloud Run
-- Cloud SQL PostgreSQL + pgvector
-- Google Cloud Storage (GCS)
-- Artifact Registry
-- Vercel
-- GitHub Actions
+- Uses **Gemini 2.5 Flash** with `application/json` structured output and a response schema.
+- Extracts cross-domain evidence including skills, tools, certifications, achievements, responsibilities, domain expertise, leadership, languages, education, experience, and projects.
+- Normalizes structured output while preserving evidence in experience and project descriptions.
+- Uses strict JSON parsing first, followed by bounded handling for JSON fences and simple wrappers; unsafe evaluation and speculative repair are not used.
+- Applies a 60-second RPC timeout and a bounded transient retry budget for resume extraction, safely below the worker request limit.
+- Emits privacy-safe diagnostics for timing and response state without logging resume text, prompts, or raw generated output.
 
-## Project overview
+### Candidate profile scoring
 
-Recruiters spend a disproportionate amount of time manually reading resumes,
-re-typing candidate details into spreadsheets, and re-reading the same PDFs to
-answer a hiring manager's question. Most of that work is pattern extraction and
-retrieval — exactly what LLMs, embeddings, and retrieval-augmented generation
-are good at.
+New candidates use the versioned, profession-neutral `profile_v2` score model.
 
-This project demonstrates a production-oriented AI recruitment workflow by combining structured extraction,
-hybrid retrieval, and grounded generation, 
-and every recommendation is validated against the actual
-candidates retrieved before being returned.
+| Deterministic category | Maximum |
+| --- | ---: |
+| Professional experience | 25 |
+| Achievements and impact | 20 |
+| Competencies and domain expertise | 20 |
+| Certifications and credentials | 10 |
+| Education | 10 |
+| Leadership and responsibility | 10 |
+| Evidence quality | 5 |
 
-- **Problem it solves**: unstructured resume PDFs are slow to search, hard to
-  compare consistently, and expensive to re-read every time a new question
-  comes up.
-- **Why it was built**: as a hands-on exploration of production RAG
-  architecture — structured extraction, hybrid retrieval, and grounded
-  generation — applied to a domain (recruiting) where hallucination has real
-  consequences.
-- **Who it's for**: recruiters and hiring teams who need to triage, search,
-  and compare candidates quickly; and, as a portfolio piece, engineers and
-  technical recruiters evaluating applied AI engineering skill.
-- **Value it provides**: minutes instead of hours to go from a stack of PDF
-  resumes to a searchable, scored, queryable candidate pool — with answers
-  that cite real resume content instead of plausible-sounding guesses.
+The deterministic profile rule score is the sum of those evidence-backed categories, bounded to 100. On successful AI analysis, the persisted final candidate profile score is:
 
-## My role
+```text
+final candidate score = round(profile rule score × 0.80 + AI analysis score × 0.20)
+```
 
-Designed and implemented the full AI application stack, end to end:
+The API and frontend keep the deterministic rule score, Gemini AI analysis score, final score, and category breakdown distinct. If AI analysis fails, the fallback final score remains the deterministic rule score. Historical candidates remain readable through `technical_v1` compatibility and are explicitly labeled as legacy rather than being presented as universal profile scores.
 
-- Backend API architecture (FastAPI, service/repository layering)
-- LLM integration (Gemini structured extraction, scoring, RAG generation)
-- RAG pipeline (chunking, embedding, retrieval, grounded generation)
-- Hybrid retrieval system (pgvector + BM25, Reciprocal Rank Fusion)
-- Database schema design (PostgreSQL + pgvector, Alembic migrations)
-- Cloud deployment (Cloud Run, Cloud SQL, Cloud Storage)
-- CI/CD pipeline (GitHub Actions)
-- Frontend integration (Next.js consumption of the backend API)
+### Job Description management and matching
 
-## Application preview
+- Recruiters and administrators can create Jobs from title and description text.
+- Gemini extracts atomic required skills, preferred skills, experience requirements, and responsibilities.
+- Job requirements and a 384-dimensional embedding are stored in PostgreSQL.
+- Candidate matching combines semantic compatibility with deterministic required/preferred skill coverage.
+- Conservative normalization handles case, punctuation, hyphenation, selected singular/plural variants, and historical sentence-shaped requirements without broad fuzzy matching.
+- Results preserve the original requirement labels and explain matched and missing skill evidence.
 
-### Dashboard
-![Dashboard](assets/screenshots/frontend-dashboard.png)
+The verified Job Match formula is:
 
-### Resume analysis
-![Resume analysis](assets/screenshots/frontend-candidates.png)
+```text
+job match score = semantic score × 0.55
+                + required skill coverage × 0.35
+                + preferred skill coverage × 0.10
+```
 
-### AI assistant
-![AI assistant](assets/screenshots/frontend-assistant.png)
+### Search and RAG
 
-### Candidate recommendation
-![Candidate recommendation](assets/screenshots/frontend-recommend.png)
+- Resume text is split into durable chunks and embedded with SentenceTransformers.
+- Normalized 384-dimensional embeddings are stored in PostgreSQL through pgvector.
+- Vector cosine search is combined with BM25 keyword retrieval.
+- BM25 is reconstructed from current PostgreSQL resume chunks on each query; there is no JSON index or local BM25 persistence.
+- Equal-weight Reciprocal Rank Fusion (`RRF_K = 60`) combines semantic and lexical rankings.
+- The RAG assistant and recommendation workflow assemble bounded context from retrieved candidates before calling Gemini.
+- Recommendations are rejected if Gemini selects a candidate outside the retrieved candidate set.
+- A no-information response is returned when retrieval does not provide supporting resume evidence.
 
-*Full screenshot set, including API responses, is in the [Screenshots](#screenshots) section below.*
+ChromaDB is not part of the current architecture. PostgreSQL and pgvector are the durable retrieval source of truth.
 
-## Project highlights
+### Recruiter workflow
 
-- **AI Resume Intelligence Pipeline** — PDF ingestion, text extraction,
-  Gemini-based structured extraction, deterministic + AI-assisted candidate
-  scoring, and embedding generation, all committed atomically so a candidate
-  is never left partially indexed.
-- **RAG HR Assistant** — a recruiter asks a natural-language question, the
-  system retrieves the most relevant resume evidence via hybrid search, and
-  Gemini generates an answer grounded in that retrieved evidence, with a
-  no-information fallback when nothing relevant is found.
-- **Candidate Recommendation** — given a job requirement, the system runs
-  hybrid retrieval across the candidate pool, ranks candidates, and returns a
-  structured, evidence-based recommendation — Gemini's suggested candidate is
-  rejected if it isn't actually part of the retrieved set.
-- **Hybrid retrieval architecture** — pgvector similarity search fused with
-  PostgreSQL-backed BM25 via Reciprocal Rank Fusion, so retrieval captures
-  both semantic meaning and exact keyword matches.
-- **JWT authentication with RBAC** — bcrypt password hashing and role-based
-  access control (`admin` / `recruiter`) enforced on the backend and mirrored
-  in the frontend.
-- **Durable asynchronous processing** — uploads create a PostgreSQL processing
-  job, store the private PDF in GCS, publish a versioned Pub/Sub message, and
-  complete extraction and indexing in an authenticated Cloud Run worker.
-- **Recruiter workflows** — job-description extraction and explainable
-  candidate matching, plus an Applied → Screening → Interview → Offer / Rejected
-  candidate pipeline.
-- **Exact-file deduplication** — SHA-256 reservations prevent the same resume
-  from being processed twice, including while its first upload is still active.
-- **Persisted in-app notifications** — PostgreSQL-backed, user-scoped alerts
-  report resume completion/failure and candidate pipeline changes through the
-  existing authenticated Next.js header bell.
-- **Observable and evaluable RAG** — structured Cloud Logging events, persisted
-  retrieval/answer records, staff-entered quality feedback, and a reviewable
-  monitoring setup for critical production signals.
-- **Cloud-native deployment** — Google Cloud Run, Cloud SQL (PostgreSQL +
-  pgvector), Cloud Storage, and Artifact Registry, deployed through an
-  automated GitHub Actions pipeline.
-- **Automated testing** — a backend test suite covering auth, RBAC, scoring,
-  hybrid retrieval, RAG, and export, run in CI against a real
-  pgvector-enabled PostgreSQL instance.
-- **Full-featured frontend** — Next.js dashboard, analytics, candidate
-  search, upload, AI assistant, recommendation, and admin-only export
-  workflows.
+- Dashboard, analytics, candidate list, detail, search, and ranking views.
+- Candidate pipeline with `APPLIED`, `SCREENING`, `INTERVIEW`, `OFFER`, and `REJECTED` stages.
+- Job creation, extracted requirement review, and ranked candidate matching.
+- Asynchronous upload progress with duplicate-file handling and candidate navigation after completion.
+- AI HR assistant and candidate recommendation interfaces grounded in indexed resume evidence.
 
-## User workflow
+### Authentication and security
 
-**Recruiter journey, end to end:**
+- Public recruiter registration and credential login.
+- JWT bearer access tokens with expiration and token-version invalidation.
+- bcrypt password hashing with 12 rounds.
+- Backend-enforced RBAC for `admin` and `recruiter` roles.
+- Public registration always creates a recruiter; the first administrator is created through an interactive bootstrap CLI.
+- Email OTP password recovery with hashed OTPs, expiry, request throttling, attempt limits, verified reset authorization, and single-use consumption.
+- Authenticated password change invalidates previously issued access tokens.
+- Protected frontend routes, automatic bearer-token attachment, and global `401` logout/redirect behavior.
 
-1. Recruiter uploads a resume PDF and receives a durable processing-job ID.
-2. The API stores the file privately in GCS and publishes a versioned Pub/Sub
-   message.
-3. The authenticated worker claims the job and Gemini extracts candidate
-   information (skills, experience,
-   education, projects) from the raw text.
-4. The system evaluates skills with a rule-based score, refined by an
-   AI-assisted score.
-5. Candidate data, resume chunks, embeddings, job association, and the final
-   `COMPLETED` state commit together.
-6. Recruiter searches candidates semantically, or filters/ranks them by
-   score and level.
-7. Recruiter asks the AI assistant a free-form question ("who has production
-   Kubernetes experience?") and gets an answer grounded in retrieved resume
-   evidence.
-8. Recruiter creates a job, runs explainable candidate matching, and moves
-   candidates through the hiring pipeline.
+The current frontend stores the access token in tab-scoped `sessionStorage`, matching the backend's JSON bearer-token contract. This limits persistence but does not provide the protections of an HttpOnly cookie against successful same-origin XSS.
+
+### Account profiles
+
+- Authenticated `/profile` page using the existing account identity.
+- Editable full name with email, role, status, and membership date displayed read-only.
+- Profile photo upload, retrieval, replacement, and removal.
+- Private GCS-backed profile images with MIME, file-signature, size, and ownership checks.
+- Authenticated photo delivery through `/auth/me/profile-photo`; internal object keys are never exposed by the public response model.
+- Initials fallback in the profile page and navigation bar.
+- Current-password verification and password-change flow using the existing secure password policy.
+
+### In-app notifications
+
+PostgreSQL-backed, user-scoped notifications are created for:
+
+- Resume processing completed
+- Resume processing failed
+- Candidate pipeline stage changed
+
+The header bell provides an unread badge, loading/empty/error states, a notification dropdown, candidate-detail navigation, mark-one/read-all actions, refresh on open, and lightweight 60-second polling. Stable event keys prevent duplicate terminal notifications from duplicate Pub/Sub delivery. Notification persistence is best-effort, so it cannot roll back an already successful business operation. Legacy processing jobs without known ownership do not create broadcast notifications.
+
+### Excel reporting
+
+The primary admin export is a professional `.xlsx` workbook generated in memory with three sheets:
+
+- **Candidates** — ranked candidate identity, score-version-aware score columns, pipeline state, AI status, summary, and creation date.
+- **Score Breakdown** — `profile_v2` evidence categories and profile rule score.
+- **Legacy Scores** — separately labeled `technical_v1` categories and scores.
+
+Workbooks include report metadata, filters, frozen headers, wrapped text, sensible widths, alternating row bands, numeric score cells, and restrained conditional formatting. Text is sanitized for spreadsheet formula injection, illegal control characters, and Excel cell-length limits. Password data, token state, profile-image keys, resume hashes, and private GCS object keys are not exported.
+
+The legacy admin-only CSV endpoint remains available for API compatibility, but the frontend uses Excel as the primary export.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U["Recruiter / Admin"] -->|HTTPS + Bearer JWT| FE["Next.js App Router<br/>Vercel"]
-    FE --> API["FastAPI ats-api<br/>Cloud Run"]
+    Browser["Recruiter/Admin browser"] -->|"HTTPS + bearer JWT"| Frontend["Next.js App Router<br/>Vercel"]
+    Frontend --> API["FastAPI API<br/>Cloud Run"]
+
     API --> DB["Cloud SQL<br/>PostgreSQL + pgvector"]
-    API --> GCS["Private resume PDFs<br/>Google Cloud Storage"]
-    API --> PS["Pub/Sub<br/>resume-processing topic"]
-    PS -->|Authenticated push| W["FastAPI ats-worker<br/>Cloud Run"]
-    W --> GCS
-    W --> DB
-    W --> GEM["Gemini 2.5 Flash"]
-    API --> GEM
-    API --> RAG["Hybrid retrieval<br/>pgvector + BM25 + RRF"]
-    RAG --> DB
-    DB -->|User-scoped notifications| API
-    API -->|Authenticated notification API| FE
+    API --> GCS["Private PDFs and profile images<br/>Google Cloud Storage"]
+    API --> PubSub["Pub/Sub resume topic"]
+    API --> Gemini["Gemini 2.5 Flash"]
+
+    PubSub -->|"Authenticated push"| Worker["FastAPI worker<br/>Cloud Run"]
+    Worker --> GCS
+    Worker --> DB
+    Worker --> Gemini
+
+    API --> Retrieval["Vector + BM25 + RRF"]
+    Retrieval --> DB
 ```
 
-## Architecture Diagram
+The public API and internal worker are separate FastAPI applications built from the same backend image. Cloud Run IAM protects worker invocation. Both services use attached service-account identity and Application Default Credentials rather than long-lived cloud access keys.
 
-![Architecture Diagram](assets/screenshots/architectureV2.png)
+### Backend dependency flow
 
+```text
+FastAPI route
+  -> authentication/RBAC dependency
+  -> service orchestration
+  -> repository/data-access layer
+  -> SQLAlchemy session
+  -> PostgreSQL / pgvector
+```
 
-The service layer calls out to **Gemini 2.5 Flash** for extraction and
-generation, **PyMuPDF** for PDF text extraction, and **SentenceTransformer**
-(`paraphrase-MiniLM-L3-v2`) for embeddings. The repository layer then fans
-out to two durable stores: the original PDF goes to **Google Cloud Storage**,
-while structured candidate data, resume chunks, and embeddings go to
-**PostgreSQL + pgvector**. GCS and PostgreSQL are separate systems, so the
-two writes are not covered by a single distributed transaction; consistency
-between them is maintained through compensating actions rather than atomic
-commit (see the resume upload flow below).
+External integrations remain behind services: Gemini, GCS, Pub/Sub, email delivery, PDF extraction, embedding generation, and Excel workbook generation. Database changes are versioned through Alembic.
 
 ### Asynchronous resume-processing flow
 
 ```mermaid
 sequenceDiagram
-    participant F as Frontend
-    participant A as ats-api
-    participant D as Cloud SQL
+    participant F as Next.js frontend
+    participant A as FastAPI API
+    participant D as PostgreSQL
     participant G as GCS
     participant P as Pub/Sub
-    participant W as ats-worker
+    participant W as Cloud Run worker
+    participant M as Gemini
 
     F->>A: POST /upload/async (PDF)
-    A->>A: Validate size, extension, PDF signature, SHA-256
-    A->>D: Reserve fingerprint + create owned PENDING job
-    A->>G: Store private PDF
+    A->>A: Validate PDF and calculate SHA-256
+    A->>D: Reserve fingerprint and create owned PENDING job
+    A->>G: Store private resume object
     A->>P: Publish versioned processing message
     A-->>F: 202 + processing_job_id
     F->>A: Poll GET /processing-jobs/{id}
-    P->>W: Authenticated push
-    W->>D: Commit PENDING → PROCESSING claim
-    W->>G: Read exact object
-    W->>W: Extract, analyze, score, chunk, embed
+    P->>W: Authenticated push request
+    W->>D: Commit PENDING -> PROCESSING claim
+    W->>G: Read exact resume object
+    W->>W: Extract PDF text
+    W->>M: Structured extraction, summary, and analysis
+    W->>W: Normalize, score, chunk, and embed
     W->>D: Commit Candidate + chunks + association + COMPLETED
-    W->>D: Persist uploader's completion notification
+    W->>D: Create uploader notification when ownership is known
     A-->>F: COMPLETED + candidate_id
 ```
 
-The fingerprint reservation returns HTTP `409` for an exact duplicate; when
-the first copy is still processing, the response intentionally has no candidate
-link yet. The worker commits its claim before expensive work, while Candidate,
-ResumeChunk, processing-job association, and `COMPLETED` are committed together.
-On processing failure those uncommitted records roll back and the durable job is
-marked `FAILED`. GCS, Pub/Sub, and PostgreSQL do not share a distributed
-transaction, so submission paths use explicit compensation where possible.
-The authenticated uploader's user ID is carried on the processing job so the
-worker can notify the correct user after terminal completion or failure.
-Legacy jobs without known ownership do not create broadcast/shared
-notifications.
+If publication fails, the submission path attempts to remove the pending reservation and uploaded object. If worker processing fails, uncommitted candidate/chunk data is rolled back and the durable job is marked `FAILED`. PostgreSQL, GCS, and Pub/Sub do not share a distributed transaction, so the implementation uses explicit state transitions and compensating actions where possible.
 
-### In-app notification flow
+## Technology stack
 
-```text
-Resume terminal event or candidate stage change
-  -> PostgreSQL notifications row
-  -> Authenticated /notifications API scoped to the current user
-  -> Next.js header bell and notification dropdown
-```
-
-Supported events are resume processing completed, resume processing failed,
-and candidate pipeline stage changed. The bell shows an unread badge, loads the
-latest notifications on authenticated render and when opened, refreshes at a
-lightweight interval, and supports marking one or all notifications as read.
-Candidate-linked notifications navigate directly to Candidate detail.
-
-Stable worker event keys prevent duplicate terminal notifications from
-duplicate Pub/Sub delivery. Notification persistence is best-effort and safely
-logged, so a notification failure cannot roll back an already successful main
-business operation.
-
-### RAG flow
-
-```text
-User query
-  -> Query embedding (SentenceTransformer)
-  -> Vector search (pgvector cosine distance)
-  -> BM25 keyword search (reconstructed from PostgreSQL)
-  -> Hybrid ranking (Reciprocal Rank Fusion, RRF_K = 60)
-  -> Bounded context assembly from top chunks
-  -> Gemini response generation (assistant answer or structured recommendation)
-```
-
-The assistant returns a no-information response when retrieval finds no
-relevant evidence, and structured recommendations are rejected unless the
-recommended candidate ID belongs to the retrieved candidate set — both are
-guardrails against the model hallucinating candidates that aren't backed by
-retrieved evidence.
-
-Completed assistant and recommendation interactions also persist a minimized
-evaluation record: query, generated answer, latency, operation, and retrieval
-references without full resume chunks, names, emails, GCS keys, credentials, or
-authorization data. Recruiters and admins can attach 1–5 retrieval/answer
-ratings and a bounded optional note without exposing stored RAG content through
-the feedback endpoint.
+| Area | Technology |
+| --- | --- |
+| Frontend | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, Axios, Recharts, Lucide React |
+| Backend | Python 3.13, FastAPI, SQLAlchemy, Pydantic, Alembic, Uvicorn |
+| AI | Google Gemini 2.5 Flash, LangChain, SentenceTransformers |
+| Retrieval | PostgreSQL 16, pgvector, BM25 (`rank-bm25`), Reciprocal Rank Fusion |
+| Document/report processing | PyMuPDF, OpenPyXL |
+| Cloud | Google Cloud Run, Cloud SQL, Google Cloud Storage, Pub/Sub, Secret Manager, Artifact Registry |
+| Frontend hosting | Vercel |
+| Testing and delivery | Pytest, Node test runner, ESLint, TypeScript, Docker, GitHub Actions |
 
 ## Data model
 
-The production schema includes:
-
-- **User** — an authenticated account (`admin` or `recruiter`), with a
-  bcrypt-hashed password and the role used for RBAC enforcement.
-- **Candidate** — a structured record produced from one uploaded resume:
-  parsed contact info, skills, experience, education, projects, the
-  rule-based and AI-assisted scores, and a reference to the stored PDF in
-  Google Cloud Storage.
-- **ResumeChunk** — one chunk of a candidate's resume text, together with
-  its embedding vector, used for hybrid (vector + BM25) retrieval.
-- **Job** — recruiter-authored job text, Gemini-extracted structured
-  requirements, and its matching embedding.
-- **ResumeProcessingJob** — durable async status, timestamps, safe failure
-  text, fingerprint reservation, eventual Candidate association, and nullable
-  `requested_by` ownership used for uploader notifications.
-- **Notification** — user-scoped in-app event metadata, optional Candidate
-  reference, read state, timestamp, and an optional stable event key used to
-  deduplicate worker terminal events.
-- **PasswordResetToken** — hashed OTP challenge state, failed attempts,
-  verification, invalidation, and single-use consumption timestamps.
-- **RAGEvaluation** — minimized RAG interaction metadata plus optional human
-  retrieval/answer ratings and feedback.
-
-**Relationship**: a `Candidate` has many `ResumeChunk` rows (one-to-many,
-`ResumeChunk.candidate_id -> Candidate.id`), reflecting the fact that a
-resume is split into multiple chunks at indexing time. Deleting a candidate
-cascades to its chunks so retrieval never returns orphaned embeddings.
-`User` is not directly related to `Candidate` or `ResumeChunk` in the
-schema — recruiters and admins act on the shared candidate pool rather than
-owning individual candidates.
-
-## Backend architecture
-
-| Folder | Responsibility |
+| Entity | Responsibility |
 | --- | --- |
-| `app/api/` | HTTP endpoints, request/response mapping, auth dependencies |
-| `app/services/` | Business logic and the AI processing pipeline (parsing, scoring, RAG orchestration) |
-| `app/repositories/` | Database access abstraction over SQLAlchemy |
-| `app/database/` | SQLAlchemy models, engine, and session management |
-| `app/models/` | Pydantic request/response schemas |
-| `app/rag/` | Prompting, text chunking, retrieval context assembly, evaluation helpers |
-| `app/vector/` | pgvector similarity search, BM25 reconstruction, hybrid ranking |
-| `alembic/` | PostgreSQL schema migrations |
-| `scripts/` | Administrative CLI tools (e.g. bootstrapping the first admin) |
-| `tests/` | Pytest suite |
-
-### Frontend
-
-Next.js 16 (App Router) with React 19 and TypeScript. Pages live in
-`frontend/app`, typed API calls in `frontend/services`, and auth state is
-provided at the root layout via `AuthProvider` / `AuthGate`. Key routes cover
-login/register/password recovery, dashboard, candidate list/detail, async
-upload progress, pipeline, job management/matching, semantic search, the RAG
-assistant, recommendations, admin-only CSV export, and a persisted notification
-bell with read/unread state and Candidate navigation.
-
-## AI engineering
-
-### LLM integration
-
-- Gemini 2.5 Flash extracts normalized candidate data (name, skills, languages,
-  education, experience, projects) as structured JSON from raw resume text.
-- Gemini generates a short candidate summary and an AI assessment score,
-  used alongside a deterministic rule-based score.
-- Structured output generation is used for candidate recommendation: Gemini
-  returns a typed Pydantic response, not free text, and the response is
-  validated against the actual retrieved candidate set before being trusted.
-
-### Retrieval-augmented generation
-
-- **Embedding creation**: resume text is chunked with a recursive character
-  splitter and embedded with SentenceTransformer into normalized
-  384-dimensional vectors.
-- **Vector similarity search**: pgvector performs cosine-distance search
-  directly in PostgreSQL — no separate vector database to operate.
-- **BM25 keyword retrieval**: a `rank_bm25` corpus is reconstructed from
-  current PostgreSQL chunk rows on every query, so it's always consistent
-  with the live database — no stale on-disk index.
-- **Hybrid retrieval**: vector and BM25 rankings are fused with equal-weight
-  Reciprocal Rank Fusion (`RRF_K = 60`) before context is handed to Gemini.
-
-### Deterministic retrieval evaluation
-
-A versioned synthetic benchmark measures the current hybrid retrieval path
-offline with Recall@1/3/5, MRR, and nDCG@5. It uses no Gemini or cloud API and
-compares aggregate results with a committed baseline using conservative
-floating-point tolerances.
-
-Run it from `backend/`:
-
-```bash
-python -m app.rag.evaluate_retrieval
-python -m app.rag.evaluate_retrieval --json
-```
-
-See [`docs/evaluation.md`](docs/evaluation.md) for the relevance assumptions,
-version 1 dataset, current measured baseline, and update procedure.
-
-### Data pipeline
-
-- **PDF processing**: PyMuPDF extracts text per page; image-only PDFs with no
-  extractable text are rejected at upload time.
-- **Text chunking**: recursive character splitting with configurable chunk
-  size and overlap (`RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`).
-- **Embedding storage**: chunks and embeddings are persisted in PostgreSQL as
-  the single durable source of truth for retrieval — shared across all
-  application instances, so horizontal scaling and Cloud Run restarts don't
-  lose RAG data.
-- **Candidate knowledge retrieval**: the same indexed chunks back three
-  surfaces — semantic search, the RAG assistant, and structured
-  recommendation — rather than three separate pipelines.
-
-## API summary
-
-| Method | Route | Purpose | Access |
-| --- | --- | --- | --- |
-| `GET` | `/health/` | Health check | Public |
-| `POST` | `/auth/register` | Create recruiter account | Public |
-| `POST` | `/auth/login` | Issue JWT access token | Public |
-| `POST` | `/auth/forgot-password` | Request a password-reset OTP | Public |
-| `POST` | `/auth/verify-reset-otp` | Verify OTP and issue reset authorization | Public |
-| `POST` | `/auth/reset-password` | Set a new password | Public |
-| `GET` | `/auth/me` | Current authenticated user | Authenticated |
-| `GET` | `/candidates/` | Paginated candidate list | Authenticated |
-| `GET` | `/candidates/search` | Filter by name, level, minimum AI score | Staff |
-| `GET` | `/candidates/stats` | Count and average AI score | Authenticated |
-| `GET` | `/candidates/ranking` | Candidates ranked by AI score | Authenticated |
-| `GET` | `/candidates/{id}` | Candidate detail | Authenticated |
-| `PUT` | `/candidates/{id}` | Update candidate level / score | Admin |
-| `DELETE` | `/candidates/{id}` | Delete candidate and its indexes | Admin |
-| `POST` | `/upload/` | Ingest and index a PDF resume | Staff |
-| `POST` | `/upload/async` | Queue durable asynchronous resume processing | Staff |
-| `GET` | `/processing-jobs/{id}` | Read async processing status | Authenticated |
-| `GET` | `/notifications` | List current user's latest notifications and unread count | Authenticated |
-| `PATCH` | `/notifications/{id}/read` | Mark one owned notification as read | Authenticated |
-| `PATCH` | `/notifications/read-all` | Mark all current user's notifications as read | Authenticated |
-| `POST` | `/search/` | Semantic candidate search | Staff |
-| `POST` | `/assistant/` | Ask the RAG assistant | Staff |
-| `POST` | `/recommend/` | Recommend a candidate for a job requirement | Staff |
-| `POST` | `/jobs` | Create and AI-prepare a job description | Staff |
-| `GET` | `/jobs` | List jobs | Authenticated |
-| `POST` | `/jobs/{id}/match` | Rank candidates for a job | Staff |
-| `PUT` | `/candidates/{id}/stage` | Move a candidate through the pipeline | Staff |
-| `PATCH` | `/rag-evaluations/{id}/feedback` | Add bounded human RAG ratings | Staff |
-| `GET` | `/dashboard/*` | Summary, top candidates, score/level distribution, recent candidates | Authenticated |
-| `GET` | `/export/csv` | Download timestamped candidate CSV | Admin |
-
-*Staff = `admin` or `recruiter`.* Full request/response contracts are in the
-interactive Swagger UI at `/docs`.
-
-## Authentication and authorization
-
-- Passwords are hashed with bcrypt (12 rounds); access tokens are signed
-  HS256 JWTs with `sub`, `type`, `iat`, `exp`, and token-version claims.
-  Refresh tokens and auth cookies are not implemented.
-- Public registration always creates a `recruiter` — there is no public
-  admin-registration endpoint. The first `admin` is created via an
-  interactive CLI (see below).
-- RBAC is enforced on the backend with FastAPI dependencies and mirrored in
-  the frontend (e.g. recruiters don't see Export or Delete controls). The
-  backend remains the authoritative security boundary in all cases.
-- The frontend stores the access token in tab-scoped `sessionStorage`; a
-  shared Axios interceptor attaches the bearer token and redirects to
-  `/login` on any `401`.
-- Password recovery uses a six-digit, bcrypt-hashed, single-use OTP that
-  expires after 10 minutes. Verification is limited to five failed attempts,
-  and a maximum of three codes may be requested per account in a 15-minute
-  database-backed window. Forgot-password responses do not reveal whether an
-  account exists.
-- Successful OTP verification issues a separate short-lived
-  `password_reset` JWT tied to one challenge. Resetting the password consumes
-  that challenge and increments the user's token version, immediately
-  invalidating access tokens issued before the password change.
-- The worker receiver is intentionally an internal trust boundary: it has no
-  browser authentication flow and must remain ingress-restricted with Cloud
-  Run IAM authenticated invocation from the Pub/Sub push identity.
-
-## Job matching and candidate pipeline
-
-Recruiters and admins create job descriptions through `/jobs`. Gemini extracts
-required skills, preferred skills, experience requirements, and responsibilities;
-the job text is embedded once and stored with the Job. `/jobs/{id}/match` ranks
-only candidates with durable resume chunks using the backend's fixed semantic,
-required-skill, and preferred-skill formula. The frontend displays the returned
-order and score breakdown without recalculating it.
-
-Every Candidate defaults to `APPLIED` and can move through `SCREENING`,
-`INTERVIEW`, `OFFER`, or `REJECTED`. The `/pipeline` page uses the existing
-candidate list and stage-update API; it currently shows the first 50 candidates
-and reports this limit in the UI.
-
-## Cloud deployment
-
-This project is deployed using a production-oriented cloud architecture:
-
-- **Separated API and worker services** — `ats-api` serves public application
-  traffic while ingress-restricted `ats-worker` receives authenticated Pub/Sub
-  pushes. Both use the same backend image.
-- **Managed PostgreSQL database** — Cloud SQL handles backups, patching, and
-  availability instead of a self-managed database instance.
-- **Durable vector storage** — candidate metadata and RAG chunks/embeddings
-  live in the same PostgreSQL instance, so there's no separate vector store
-  to keep in sync or lose on restart.
-- **Containerized deployment** — the backend ships as a Docker image built
-  from the same `Dockerfile` used locally and in CI.
-- **Automated CI/CD** — GitHub Actions tests the backend against pgvector,
-  builds and pushes one immutable commit-SHA image, applies committed Alembic
-  migrations through the Cloud SQL Auth Proxy, deploys that image to `ats-api`
-  and `ats-worker`, verifies image parity, and then health-checks the API.
-
-Backend:
-- FastAPI API and worker deployed as separate Google Cloud Run services
-- Swagger UI is served from `/docs` on the deployed API service
-
-Frontend:
-- Next.js deployed on Vercel
-- Live URL: https://ai-document-intelligence-nu.vercel.app
-
-```text
-Developer
-  -> GitHub repository
-  -> GitHub Actions
-       Backend CI/CD (.github/workflows/test.yml)
-         -> Backend tests (pgvector-enabled PostgreSQL service)
-         -> Build and push one immutable SHA-tagged image
-         -> Production Alembic migration via Cloud SQL Auth Proxy
-         -> Deploy same image to ats-api
-         -> Deploy same image to ats-worker
-         -> Verify API/worker images match
-         -> API health check
-       Frontend CI (.github/workflows/frontend-ci.yml)
-         -> npm ci
-         -> ESLint
-         -> Next.js production build
-```
-
-There are two independent GitHub Actions workflows. The backend workflow
-(`test.yml`) runs the pytest suite against a real PostgreSQL + pgvector
-service container, builds and pushes the Docker image before touching the
-production database, applies Alembic migrations, and deploys the same exact
-commit-SHA image to both Cloud Run services. A parity check fails deployment
-if their image references diverge, preventing API/worker version skew. The
-frontend workflow (`frontend-ci.yml`) installs
-dependencies with `npm ci`, runs ESLint, and runs a production Next.js build
-on every push, so frontend regressions are caught in CI before merge; the
-frontend itself deploys separately through Vercel's own Git integration.
-
-| Component | Role |
-| --- | --- |
-| Google Cloud Run | Separate `ats-api` and authenticated `ats-worker` services |
-| Google Artifact Registry | Docker image storage |
-| Cloud SQL (PostgreSQL + pgvector) | Managed database and vector store |
-| Google Cloud Storage (GCS) | Private resume PDF object storage |
-| Vercel | Hosting and deployment for the Next.js frontend |
-| GitHub Actions | Backend CI/CD (test, build, deploy) and frontend CI (lint, build) |
-
-Vector search and BM25 both read from Cloud SQL as the shared source of
-truth, so scaling to multiple Cloud Run instances doesn't fragment or lose
-RAG data — there is no local index file or separate vector database to keep
-in sync.
-
-## Engineering decisions
-
-**Why PostgreSQL + pgvector instead of a separate vector database?**
-A dedicated vector database (Pinecone, Weaviate, Chroma, etc.) adds another
-system to operate, secure, and keep consistent with the primary database.
-Using pgvector keeps candidate metadata and embeddings in the same
-PostgreSQL instance, in the same transaction — a candidate and its
-embeddings either commit together or roll back together, with one
-connection pool and one backup/restore story instead of two.
-
-**Why hybrid search instead of vector-only?**
-Vector search is strong at semantic meaning ("backend engineer" matching
-"API developer") but can miss exact terms that matter a lot in recruiting —
-specific tool names, certifications, or acronyms. BM25 is strong at exact
-keyword matches but blind to paraphrasing. Fusing both with Reciprocal Rank
-Fusion gets the benefits of each without picking one failure mode over the
-other.
-
-**Why RAG instead of letting the LLM answer from its own knowledge?**
-An LLM asked "does this candidate know Kubernetes?" without grounding will
-happily guess. Retrieval-augmented generation forces every answer to be
-built from actually-retrieved resume text, which reduces hallucination,
-keeps answers explainable (the evidence is traceable to specific chunks),
-and lets the no-information path trigger honestly when there's no
-supporting evidence instead of the model inventing one.
-
-## Security considerations
-
-- Backend RBAC—not hidden frontend controls—is authoritative. Public signup
-  always creates a recruiter; administrators are created only with the
-  interactive bootstrap CLI.
-- Access and password-reset JWTs are signed with an environment-specific
-  secret of at least 32 UTF-8 bytes. Password changes increment token version,
-  invalidating previously issued access tokens.
-- OTPs are bcrypt-hashed, rate-limited, attempt-limited, expiring, and
-  single-use. Public forgot-password responses resist account enumeration.
-- Resume uploads are bounded by size, `.pdf` filename, non-empty content, and
-  the PDF file signature before processing. Stored objects remain private.
-- Cloud Run uses service-account identity through Application Default
-  Credentials; credentials are never embedded in images or repository files.
-- CORS must list the exact deployed frontend origins. The internal worker must
-  remain ingress-restricted and require authenticated Pub/Sub invocation.
-- Structured logs contain stable IDs, operation names, outcomes, latency, and
-  error categories—not resume text, tokens, passwords, provider payloads, or
-  credentials.
-- RAG evaluation deliberately stores user queries and generated answers but
-  strips full chunks and sensitive retrieval metadata. Production retention
-  and access policies must reflect that queries/answers can still contain PII.
-- Notification queries and read mutations are always filtered by the
-  authenticated user. Async jobs without a known uploader do not generate a
-  shared or broadcast notification.
-- The frontend uses tab-scoped `sessionStorage` because the current backend
-  returns bearer tokens in JSON. This limits persistence but is still exposed
-  to successful same-origin XSS; a future cookie-based design would require a
-  coordinated backend authentication change.
-
-## Observability and RAG evaluation
-
-Structured JSON events cover HTTP requests, Pub/Sub publication and delivery,
-worker state, Gemini/RAG operations, latency, outcomes, and safe error
-categories. Payloads and credentials are intentionally excluded. Assistant and
-recommendation interactions are persisted with minimized retrieval references,
-and staff can attach bounded 1–5 retrieval and answer ratings.
-
-The dry-run-first `infrastructure/scripts/setup-monitoring.ps1` defines five
-Cloud Logging metrics and alert policies for worker requests, Pub/Sub
-publication, RAG/Gemini operations, API latency, and resume processing. Applying
-it requires both `-Apply` and an exact project confirmation; notification
-channels and potential Cloud Monitoring costs should be reviewed first.
-
-## Environment variables
-
-Configuration is managed entirely through environment variables — copy
-`.env.example` to `.env` and fill in real values locally; never commit a
-populated `.env` file. In production, secrets (`DATABASE_URL`,
-`GEMINI_API_KEY`, `JWT_SECRET_KEY`, `SMTP_PASSWORD`) are injected through the deployment
-environment (e.g. Cloud Run environment configuration / Secret Manager),
-not committed to the repository.
-
-Required: `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET_KEY` (minimum 32
-bytes). Everything else — CORS origins, token lifetime, upload size limits,
-embedding model, chunking parameters, database pool sizing — has a sensible
-default and is documented inline in `.env.example`.
-
-Password-recovery email uses `EMAIL_BACKEND=console` for local development;
-the OTP is written only to the local backend log in that mode. Production
-must use `EMAIL_BACKEND=smtp` and configure `SMTP_HOST`, `SMTP_PORT`,
-`SMTP_FROM_EMAIL`, TLS settings, and provider credentials when required.
-Console delivery is rejected when `ENVIRONMENT=production`, and raw provider
-errors are never returned by the public API.
-
-The frontend requires one public (non-secret) variable,
-`NEXT_PUBLIC_API_URL`, in `frontend/.env.local`.
-
-Variable names currently recognized by the application:
-
-| Area | Names |
-| --- | --- |
-| Core | `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET_KEY`, `ENVIRONMENT`, `APP_NAME`, `APP_VERSION`, `PORT` |
-| Database | `DATABASE_MAX_RETRIES`, `DATABASE_RETRY_DELAY_SECONDS`, `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` |
-| Auth | `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` |
-| Password reset | `PASSWORD_RESET_OTP_EXPIRE_MINUTES`, `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES`, `PASSWORD_RESET_MAX_ATTEMPTS`, `PASSWORD_RESET_REQUEST_LIMIT`, `PASSWORD_RESET_REQUEST_WINDOW_MINUTES` |
-| Email | `EMAIL_BACKEND`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`, `SMTP_TIMEOUT_SECONDS` |
-| Upload/storage | `MAX_UPLOAD_SIZE_MB`, `GCS_BUCKET_NAME`, `GCS_KEY_PREFIX` |
-| Async messaging | `GCP_PROJECT_ID`, `PUBSUB_RESUME_PROCESSING_TOPIC` |
-| Retrieval | `EMBEDDING_MODEL_NAME`, `EMBEDDING_BATCH_SIZE`, `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP` |
-| Web | `CORS_ORIGINS`, `NEXT_PUBLIC_API_URL` |
-
-AWS keys and long-lived GCP service-account keys are not application
-configuration. Cloud Run uses attached service accounts and Application
-Default Credentials for GCS and Pub/Sub.
-
-## Local development
-
-### Prerequisites
-
-- Python 3.13
-- PostgreSQL 16 (or Docker for the provided database service)
-- Node.js and npm compatible with Next.js 16
-- A Gemini API key
-
-### 1. Environment and database
-
-```bash
-cp .env.example .env
-docker compose up -d db
-```
-
-### 2. Backend
-
-```bash
-python -m venv .venv
-# Linux/macOS: source .venv/bin/activate
-# Windows PowerShell: .\.venv\Scripts\Activate.ps1
-cd backend
-pip install -r requirements.txt
-python -m alembic upgrade head
-python -m uvicorn main:app --reload
-```
-
-API: `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`
-
-With the default development email backend, request a reset from
-`/forgot-password` and read the one-time code from the local backend console.
-Use an SMTP sandbox instead if local email delivery needs to be tested end to
-end; never place real SMTP credentials in `.env.example`.
-
-### 3. Frontend
-
-```bash
-cd frontend
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
-npm install
-npm run dev
-```
-
-Frontend: `http://localhost:3000`
-
-### 4. Create the first administrator
-
-Public registration only creates recruiters. Bootstrap the first admin via
-the interactive CLI (prompts for email, name, and password; nothing is
-printed to the terminal):
-
-```bash
-cd backend
-python scripts/create_admin.py
-```
-
-### Docker (full backend stack)
-
-```bash
-docker compose up -d --build db api
-docker compose exec api python -m alembic upgrade head
-```
-
-The `docker-compose.yml` defines local `api` and `db` services for
-development only; there is no frontend service in Compose — run it locally
-or deploy it separately.
-
-## Testing
-
-Backend:
-
-```bash
-cd backend
-pytest -q
-```
-
-The suite covers:
-
-- **Unit-level logic**: rule-based scoring, chunking, RRF fusion
-- **Integration tests**: authentication, real JWT/RBAC enforcement,
-  password-reset OTP lifecycle and token invalidation,
-  candidate CRUD, upload orchestration, semantic and hybrid retrieval,
-  assistant/recommendation behavior, notification isolation/event handling,
-  CSV export, and the admin CLI
-- **Database migration validation**: tests run against a real
-  pgvector-enabled PostgreSQL instance with Alembic migrations applied,
-  not a mocked database
-- **CI verification**: every push runs the full suite in GitHub Actions
-  against a fresh PostgreSQL + pgvector service container
-
-The hybrid-search tests load the SentenceTransformer model, so the first
-run may need network access to download it.
-
-Frontend:
-
-```bash
-cd frontend
-npm ci
-npm run lint
-npm run build
-```
-
-All three commands run automatically on every push via the frontend CI
-workflow (`.github/workflows/frontend-ci.yml`), so lint and build
-regressions are caught before merge, independently of the backend pipeline.
+| `User` | Recruiter/admin identity, bcrypt hash, role, active state, token version, and private profile-image key |
+| `PasswordResetToken` | Hashed OTP challenge, attempt state, verification, invalidation, and single-use consumption |
+| `Candidate` | Candidate identity, summary, level, pipeline stage, versioned scores, deduplication hash, and private resume reference |
+| `ResumeChunk` | Durable resume text chunk plus pgvector embedding |
+| `ResumeProcessingJob` | Async status, timestamps, safe failure text, fingerprint reservation, uploader ownership, and Candidate association |
+| `Job` | Job Description, structured Gemini requirements, embedding, creator, and timestamp |
+| `Notification` | User-scoped notification, optional Candidate link, read state, and optional idempotency key |
+| `RAGEvaluation` | Query/answer, minimized retrieval references, timings, operation, and optional human quality feedback |
+
+A Candidate owns many ResumeChunks, and deleting a Candidate cascades to its durable chunks. The candidate pool is shared by authenticated staff; the current schema does not provide organization-level tenancy or per-recruiter Candidate ownership.
 
 ## Repository structure
 
@@ -775,182 +240,337 @@ regressions are caught before merge, independently of the backend pipeline.
 AI-Document-Intelligence/
 ├── backend/
 │   ├── app/
-│   │   ├── api/                # HTTP endpoints
-│   │   ├── core/               # Config, security, exceptions
-│   │   ├── database/           # SQLAlchemy models and engine
-│   │   ├── models/             # Pydantic schemas
-│   │   ├── repositories/       # Database access
-│   │   ├── services/           # Business logic and AI pipeline
-│   │   ├── rag/                # Prompting, chunking, retrieval
-│   │   └── vector/             # pgvector, BM25, hybrid search
-│   ├── alembic/                # Migrations
-│   ├── scripts/                # API/worker entry points and admin CLI
-│   ├── tests/                  # Pytest suite
-│   ├── main.py                 # Public API application
-│   ├── worker_main.py          # Internal Pub/Sub worker application
+│   │   ├── api/             # FastAPI routes and dependencies
+│   │   ├── core/            # Configuration, security, exceptions
+│   │   ├── database/        # SQLAlchemy engine, sessions, ORM models
+│   │   ├── models/          # Pydantic API contracts and enums
+│   │   ├── repositories/    # Database access
+│   │   ├── services/        # Business, AI, storage, messaging, export logic
+│   │   ├── rag/             # Prompts, chains, chunking, evaluation
+│   │   └── vector/          # pgvector, BM25, and hybrid retrieval
+│   ├── alembic/             # Ordered database migrations
+│   ├── scripts/             # API/worker entry points and admin bootstrap CLI
+│   ├── tests/               # Backend unit and integration tests
+│   ├── main.py              # Public API application
+│   ├── worker_main.py       # Internal Pub/Sub worker application
 │   └── Dockerfile
-│
 ├── frontend/
-│   ├── app/                    # Next.js App Router pages
-│   ├── components/             # Reusable UI components
-│   ├── services/               # Typed API clients
-│   ├── contexts/               # React context providers (auth state)
-│   ├── lib/                    # Browser auth/recovery state helpers
-│   └── types/                  # Shared TypeScript types
-│
-├── .github/
-│   └── workflows/
-│       ├── test.yml            # Backend CI/CD
-│       └── frontend-ci.yml     # Frontend CI
-│
-├── assets/
-│   └── screenshots/            # Images referenced in this README
-├── infrastructure/
-│   └── scripts/                # Explicit, dry-run-first operations scripts
-├── docker-compose.yml
+│   ├── app/                 # Next.js routes
+│   ├── components/          # Reusable authenticated UI
+│   ├── contexts/            # Authentication context
+│   ├── services/            # Shared typed Axios clients
+│   ├── lib/                 # Browser state and presentation helpers
+│   ├── types/               # Shared TypeScript contracts
+│   └── tests/               # Focused frontend tests
+├── infrastructure/scripts/ # Dry-run-first monitoring setup
+├── assets/screenshots/      # Tracked project screenshots
+├── docs/                    # Evaluation documentation
+├── .github/workflows/       # Backend CI/CD and frontend CI
+├── docker-compose.yml       # Local API + pgvector PostgreSQL
 └── README.md
 ```
 
-## Production checklist
+## API overview
 
-- [ ] Apply committed migrations with `python -m alembic upgrade head`; verify
-  the reported revision matches the repository's single Alembic head.
-- [ ] Confirm Cloud SQL uses PostgreSQL with the `vector` extension, private or
-  controlled connectivity, backups, and an application-scoped database user.
-- [ ] Confirm the GCS resume bucket is private and both API/worker service
-  accounts have only their required object permissions.
-- [ ] Confirm the Pub/Sub topic and authenticated push subscription target the
-  internal worker endpoint.
-- [ ] Confirm `ats-worker` requires authenticated invocation, uses internal
-  ingress, and runs with concurrency/max-instance limits appropriate for the
-  embedding workload.
-- [ ] Confirm `ats-api` and `ats-worker` report the same immutable image SHA.
-- [ ] Inject `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET_KEY`, and SMTP
-  credentials from managed secrets; never pass cloud access-key files.
-- [ ] Set `ENVIRONMENT=production`, `EMAIL_BACKEND=smtp`, and exact
-  `CORS_ORIGINS`; verify `NEXT_PUBLIC_API_URL` points Vercel to the API URL.
-- [ ] Verify GitHub Actions workload identity, migration gate, image-parity
-  check, frontend lint/build, and post-deploy health check.
-- [ ] Preview and deliberately apply the monitoring script, attach a tested
-  notification channel, and review expected observability costs.
-- [ ] Smoke-test login, async upload/status, duplicate response, Candidate
-  detail, job matching, pipeline movement, RAG assistant, notification bell
-  unread/read behavior and Candidate navigation, and admin-only paths.
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health/` | Public | Service health check |
+| `POST` | `/auth/register` | Public | Create recruiter account |
+| `POST` | `/auth/login` | Public | Issue access token |
+| `POST` | `/auth/forgot-password` | Public | Request password-reset OTP |
+| `POST` | `/auth/verify-reset-otp` | Public | Verify OTP and issue reset authorization |
+| `POST` | `/auth/reset-password` | Public | Consume reset authorization and change password |
+| `GET/PATCH` | `/auth/me` | Authenticated | Read or update current profile |
+| `POST/GET/DELETE` | `/auth/me/profile-photo` | Authenticated | Manage private profile photo |
+| `POST` | `/auth/change-password` | Authenticated | Change password and invalidate existing access tokens |
+| `POST` | `/upload/async` | Staff | Queue durable resume processing |
+| `POST` | `/upload/` | Staff | Compatibility synchronous processing path |
+| `GET` | `/processing-jobs/{id}` | Authenticated | Read processing status |
+| `GET` | `/candidates/` | Authenticated | Paginated candidate list |
+| `GET` | `/candidates/{id}` | Authenticated | Candidate detail |
+| `GET` | `/candidates/search` | Staff | Structured Candidate filters |
+| `PUT` | `/candidates/{id}/stage` | Staff | Move Candidate through pipeline |
+| `PUT/DELETE` | `/candidates/{id}` | Admin | Update or delete Candidate |
+| `POST/GET` | `/jobs` | Staff create / authenticated list | Create and list Jobs |
+| `POST` | `/jobs/{id}/match` | Staff | Rank Candidates for a Job |
+| `POST` | `/search/` | Staff | Semantic Candidate search |
+| `POST` | `/assistant/` | Staff | Grounded RAG HR assistant |
+| `POST` | `/recommend/` | Staff | Retrieved Candidate recommendation |
+| `GET/PATCH` | `/notifications...` | Authenticated | List and update owned notifications |
+| `PATCH` | `/rag-evaluations/{id}/feedback` | Staff | Attach human evaluation ratings |
+| `GET` | `/export/xlsx` | Admin | Download professional Excel report |
+| `GET` | `/export/csv` | Admin | Legacy CSV compatibility export |
 
-## Known limitations
+Dashboard and analytics endpoints require an authenticated user. Missing or invalid authentication returns `401`; an authenticated user without the required role receives `403`.
 
-- Candidate data is a shared workspace; there is no organization-level tenant
-  isolation or per-recruiter ownership model.
-- Bearer tokens live in `sessionStorage`; there are no refresh tokens or
-  HttpOnly authentication cookies.
-- PDF checks validate size, extension, signature, and extractable text but do
-  not provide malware scanning, OCR for image-only resumes, or a sandboxed
-  document-conversion service.
-- GCS, Pub/Sub, and PostgreSQL cannot participate in one atomic transaction.
-  Compensation and durable status reduce inconsistency, but production
-  reconciliation tooling is still limited.
-- Async work is delivered at least once. Database status claims and exact-file
-  deduplication make processing idempotent, but operational retry/dead-letter
-  settings remain deployment responsibilities.
-- BM25 is rebuilt from PostgreSQL chunks for each query, which favors
-  consistency and simplicity over very large-corpus throughput.
-- RAG evaluation has human ratings and a deterministic retrieval benchmark,
-  but no automated judge, aggregate quality dashboard, or formal
-  retention/deletion workflow.
-- The deterministic retrieval benchmark is deliberately synthetic and does
-  not measure embedding-model quality or production-corpus drift.
-- The pipeline UI intentionally loads only the first 50 candidates returned by
-  the existing candidate-list API.
+## Local development
 
-## Future improvements
+### Prerequisites
 
-- **Async reconciliation tooling** — add dead-letter handling, orphan scans,
-  controlled replay, and operator-visible recovery workflows.
+- Python 3.13
+- Node.js 22+ and npm
+- PostgreSQL 16 with the `vector` extension, or Docker
+- A Gemini API key
+- GCP Application Default Credentials plus GCS/Pub/Sub development resources only when testing cloud-backed upload flows
 
-- **More advanced embedding models** — evaluate larger or domain-specific
-  embedding models against the current `paraphrase-MiniLM-L3-v2` baseline to
-  improve retrieval quality.
+### Environment configuration
 
-- **Expanded observability** — add trace correlation and service-level
-  objectives after the current structured logs and critical alert metrics have
-  enough production history to establish useful baselines.
+Copy the safe template and provide local values. Never commit the populated file.
 
-- **Multi-tenant recruiter workspace** — support organization-based isolation
-  with separate recruiter teams, users, and candidate pools instead of a
-  single shared workspace.
+```powershell
+Copy-Item .env.example .env
+```
 
-- **Improved authentication security** — introduce refresh tokens and
-  HttpOnly cookie-based authentication to replace browser storage tokens and
-  improve resistance against token-related security risks.
+Minimum backend configuration:
 
-## Screenshots
+```dotenv
+DATABASE_URL=postgresql://<user>:<password>@localhost:5433/resume_db
+GEMINI_API_KEY=<local-development-key>
+JWT_SECRET_KEY=<random-secret-at-least-32-utf8-bytes>
+```
 
-All images below already exist in `assets/screenshots`.
+Feature-specific configuration:
+
+```dotenv
+# Async resume storage and publication
+GCS_BUCKET_NAME=<development-bucket>
+GCS_KEY_PREFIX=resumes
+GCP_PROJECT_ID=<development-project>
+PUBSUB_RESUME_PROCESSING_TOPIC=resume-processing
+
+# Password recovery
+EMAIL_BACKEND=console
+
+# Frontend (place in frontend/.env.local)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+The complete list of supported names and safe defaults is documented in [`.env.example`](.env.example). Production uses attached service accounts for Google Cloud APIs; do not place long-lived GCP credentials in application environment variables.
+
+### Start PostgreSQL
+
+```powershell
+docker compose up -d db
+```
+
+The Compose database is available to the host on port `5433` and includes pgvector.
+
+### Backend
+
+From the repository root:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r backend/requirements.txt
+
+Set-Location backend
+python -m alembic upgrade head
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API: `http://localhost:8000`
+- OpenAPI documentation: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health/`
+
+For local password recovery, `EMAIL_BACKEND=console` writes the development OTP to the backend console. Production explicitly rejects the console backend.
 
 ### Frontend
 
-#### Dashboard
+```powershell
+Set-Location frontend
+npm ci
+Set-Content -LiteralPath .env.local -Value 'NEXT_PUBLIC_API_URL=http://localhost:8000'
+npm run dev
+```
 
-![Frontend dashboard](assets/screenshots/frontend-dashboard.png)
+The frontend runs at `http://localhost:3000`.
 
-#### Candidate management
+### Create the first administrator
 
-![Frontend candidates](assets/screenshots/frontend-candidates.png)
+Public registration cannot create administrators. Run the interactive bootstrap CLI from `backend/`:
 
-#### AI search
+```powershell
+python scripts/create_admin.py
+```
 
-![Frontend AI search](assets/screenshots/frontend-ai-search.png)
+Inside the local API container:
 
-#### AI assistant
+```powershell
+docker compose exec api python scripts/create_admin.py
+```
 
-![Frontend assistant](assets/screenshots/frontend-assistant.png)
+The script hides password input, validates against the existing auth contract, detects duplicate emails, and rolls back on failure.
 
-#### Candidate recommendation
+### Docker development stack
 
-![Frontend recommendation](assets/screenshots/frontend-recommend.png)
+```powershell
+docker compose up -d --build db api
+docker compose exec api python -m alembic upgrade head
+```
 
-#### Analytics
+Compose contains the API and pgvector PostgreSQL services. The frontend and Pub/Sub worker are not part of the local Compose file.
 
-![Frontend analytics](assets/screenshots/frontend-analytics.png)
+## Database migrations
 
-#### CSV export
+Alembic migrations are stored in `backend/alembic/versions`. The current repository has one head: `e4a7c1d9b250`.
 
-![Frontend export](assets/screenshots/frontend-export.png)
+Run migration checks from `backend/`:
 
-### API
+```powershell
+python -m alembic heads
+python -m alembic current
+python -m alembic upgrade head
+```
 
-#### Resume upload
+Production migrations are automated in the backend deployment job. After tests and image build/push succeed, GitHub Actions connects through Cloud SQL Auth Proxy, retrieves the database URL from Secret Manager, runs `alembic upgrade head`, verifies `alembic current`, and only then deploys Cloud Run. Pull-request workflows cannot execute this production deployment path.
 
-![Upload API](assets/screenshots/upload-api.png)
+## Testing
 
-#### Candidate filtering and ranking
+Backend:
 
-![Candidate search API](assets/screenshots/search-candidates-api.png)
+```powershell
+Set-Location backend
+pytest -q
+python -m compileall -q app tests
+```
 
-![Candidate ranking API](assets/screenshots/ranking-api.png)
+Frontend:
 
-#### Semantic search
+```powershell
+Set-Location frontend
+npm ci
+npm test
+npm run lint
+npx tsc --noEmit
+npm run build
+```
 
-![Semantic search API](assets/screenshots/semantic-search-api.png)
+The test suite covers authentication/RBAC, password recovery, account profiles, private GCS storage, PDF validation, extraction parsing and diagnostics, cross-domain scoring, async submission and worker transactions, Pub/Sub contracts, deduplication, pgvector and hybrid retrieval, RAG persistence/evaluation, Job extraction and matching, Candidate pipeline behavior, notifications, and Excel export privacy/formatting.
 
-![Semantic search API result](assets/screenshots/semantic-search-api2.png)
+Backend CI uses a PostgreSQL 16 + pgvector service, applies Alembic migrations, and runs the full pytest suite. Frontend CI runs `npm ci`, ESLint, and the production Next.js build.
 
-#### RAG assistant
+## Deployment
 
-![Assistant API](assets/screenshots/assistant-api.png)
+| Component | Production role |
+| --- | --- |
+| Vercel | Next.js frontend |
+| Cloud Run API | Public FastAPI application |
+| Cloud Run worker | Internal authenticated Pub/Sub receiver and resume processor |
+| Cloud SQL | PostgreSQL database and pgvector store |
+| Google Cloud Storage | Private resume PDFs and profile images |
+| Pub/Sub | At-least-once resume-processing delivery |
+| Secret Manager | Runtime and database secrets |
+| Artifact Registry | Immutable backend container images |
+| GitHub Actions | Backend tests/migration/deployment and frontend validation |
 
-![Assistant API result](assets/screenshots/assistant-api2.png)
+The backend pipeline builds one SHA-tagged image and deploys that exact image to both API and worker services. It then verifies their image references match before performing the API health check, preventing API/worker version skew. A deployment failure or migration failure stops the job visibly.
 
-#### Recommendation
+The worker keeps its service-specific command, authenticated access, internal ingress, and resource/concurrency configuration in Cloud Run; the workflow updates only its image. The frontend is hosted separately on Vercel, while the repository's frontend workflow acts as the lint/build gate.
 
-![Recommendation API](assets/screenshots/recommend-api.png)
+## Observability and evaluation
 
-![Recommendation API result](assets/screenshots/recommend-api2.png)
+- Structured JSON events cover HTTP requests, Pub/Sub publication/delivery, worker state transitions, Gemini/RAG operations, latency, outcomes, and safe error categories.
+- Logs intentionally omit resume text, prompts, raw model output, credentials, and authorization tokens.
+- Assistant and recommendation interactions persist query, generated answer, minimized retrieval references, latency, and operation metadata.
+- Staff can attach 1–5 retrieval and answer ratings with a bounded optional feedback note.
+- A deterministic, versioned offline benchmark reports Recall@1/3/5, MRR, and nDCG@5 against synthetic fixtures without Gemini or cloud calls.
+- `infrastructure/scripts/setup-monitoring.ps1` is dry-run-first and defines a small set of log-based metrics and alert policies for worker failures, Pub/Sub publication failures, Gemini/RAG failures, API latency, and resume-processing failures.
 
-#### Dashboard and export
+## Security and privacy
 
-![Dashboard summary API](assets/screenshots/dashboard-summary.png)
+- Backend authorization is authoritative; frontend role visibility is only a usability layer.
+- JWT signatures require an environment-specific secret of at least 32 UTF-8 bytes, and only HS256 is accepted by the current implementation.
+- Passwords and OTPs are bcrypt-hashed; token versioning invalidates previously issued access tokens after password changes.
+- Forgot-password responses avoid disclosing whether an account exists.
+- Resume uploads are size-, extension-, signature-, and content-validated; exact duplicates are fingerprinted without exposing hashes publicly.
+- Resume PDFs and profile images remain private in GCS and are accessed through application authorization.
+- Cloud Run uses service-account identity and Application Default Credentials instead of committed cloud keys.
+- Secrets are injected through deployment configuration/Secret Manager and are excluded from source and container build context.
+- Structured logging excludes resume/model payloads and sensitive exception messages.
+- Notification list/read operations are scoped to the authenticated user.
+- Excel exports exclude internal auth/storage data and neutralize spreadsheet formula injection.
+- CORS is configured from an explicit origin list.
 
-![Top candidates API](assets/screenshots/top-candidates.png)
+RAG evaluation records intentionally contain recruiter queries and generated answers. Those fields can still contain personal information, so production retention and access policies must treat them accordingly.
 
-![CSV export API](assets/screenshots/csv-export.png)
+## Engineering decisions
+
+### PostgreSQL + pgvector as the retrieval source of truth
+
+Candidate metadata, chunks, and vectors share one database transaction and one backup model. This avoids coordinating a separate vector database and prevents Cloud Run replicas from developing divergent local indexes.
+
+### Hybrid retrieval instead of vector-only search
+
+Vector search captures semantic similarity, while BM25 preserves exact tools, certifications, and acronyms. Reciprocal Rank Fusion combines their ranks without assuming their raw scores share a scale.
+
+### AI plus deterministic evaluation
+
+Gemini performs evidence extraction and qualitative analysis; inspectable rule-based scoring and skill coverage provide stable, versioned behavior. Job Matching exposes semantic and deterministic components rather than hiding them behind one unexplained score.
+
+### Durable asynchronous processing
+
+A database job and idempotent state transitions make work observable across restarts and duplicate delivery. Candidate/chunk writes commit with terminal completion, while external GCS/Pub/Sub failure paths use compensation where a distributed transaction is impossible.
+
+### Backward-compatible score semantics
+
+`profile_v2` enables profession-neutral scoring without rewriting historical `technical_v1` records. APIs and Excel exports preserve the distinction so incompatible breakdowns are never silently mixed.
+
+## Current project status
+
+Implemented and represented in the current repository:
+
+- Resume validation, exact-file deduplication, synchronous compatibility upload, and durable asynchronous processing
+- Cross-domain structured Gemini extraction with bounded retries and privacy-safe diagnostics
+- Versioned profession-neutral candidate scoring
+- PostgreSQL/pgvector search, hybrid retrieval, RAG assistant, and recommendations
+- Job Description extraction and explainable Candidate ranking
+- Candidate pipeline management
+- JWT authentication, RBAC, password recovery, and account profiles
+- Private GCS resume/profile-photo storage
+- User-scoped in-app notifications
+- Professional Excel reporting with legacy CSV compatibility
+- Retrieval evaluation, structured observability, and reviewable monitoring configuration
+- Cloud Run/Cloud SQL/GCS/Pub/Sub production architecture and GitHub Actions delivery gates
+
+## Known limitations and future improvements
+
+- The Candidate pool is a shared workspace; organization-level tenancy is not implemented.
+- Access tokens use `sessionStorage`; refresh tokens and HttpOnly-cookie authentication would require a coordinated backend/frontend redesign.
+- OCR, malware scanning, and sandboxed document conversion are not implemented for image-only or hostile PDFs.
+- PostgreSQL, GCS, and Pub/Sub cannot participate in one atomic transaction; reconciliation and dead-letter operational tooling can be expanded.
+- BM25 is rebuilt from PostgreSQL chunks per query, prioritizing consistency over very large-corpus throughput.
+- The Candidate pipeline UI loads the first 50 records returned by the existing list endpoint.
+- RAG evaluation has deterministic retrieval metrics and human feedback, but no automated LLM judge or aggregate quality dashboard.
+- Larger or domain-specialized embedding models should be evaluated against the committed baseline before replacement.
+
+## Screenshots
+
+The following screenshots are tracked in `assets/screenshots` and reflect existing application surfaces.
+
+### Dashboard
+
+![Dashboard](assets/screenshots/frontend-dashboard.png)
+
+### Candidate management and score breakdown
+
+![Candidate management](assets/screenshots/frontend-candidates.png)
+
+### Semantic Candidate search
+
+![Semantic search](assets/screenshots/frontend-ai-search.png)
+
+### Grounded AI assistant
+
+![AI assistant](assets/screenshots/frontend-assistant.png)
+
+### Candidate recommendation
+
+![Candidate recommendation](assets/screenshots/frontend-recommend.png)
+
+### Analytics
+
+![Analytics](assets/screenshots/frontend-analytics.png)
+
+Additional useful screenshots for a future documentation pass: Job Matching, Candidate Pipeline, Account Profile, notification bell, and the generated Excel workbook. No untracked or synthetic screenshots are referenced here.
