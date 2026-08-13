@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import google.generativeai as genai
 
 from app.core.config import GEMINI_API_KEY
@@ -31,6 +32,192 @@ EMPTY_RESUME_DATA = {
     "experience": [],
     "projects": []
 }
+
+
+class ResumeExtractionError(RuntimeError):
+    """Raised when Gemini does not return a usable resume object."""
+
+
+STRING_ARRAY_SCHEMA = {
+    "type": "ARRAY",
+    "items": {"type": "STRING"},
+}
+
+
+RESUME_RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "name": {"type": "STRING"},
+        "skills": STRING_ARRAY_SCHEMA,
+        "tools": STRING_ARRAY_SCHEMA,
+        "certifications": STRING_ARRAY_SCHEMA,
+        "achievements": STRING_ARRAY_SCHEMA,
+        "responsibilities": STRING_ARRAY_SCHEMA,
+        "domain_expertise": STRING_ARRAY_SCHEMA,
+        "leadership_experience": STRING_ARRAY_SCHEMA,
+        "languages": STRING_ARRAY_SCHEMA,
+        "education": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "institution": {"type": "STRING"},
+                    "degree": {"type": "STRING"},
+                    "start_date": {"type": "STRING"},
+                    "end_date": {"type": "STRING"},
+                },
+            },
+        },
+        "experience": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "title": {"type": "STRING"},
+                    "company": {"type": "STRING"},
+                    "start_date": {"type": "STRING"},
+                    "end_date": {"type": "STRING"},
+                    "description": STRING_ARRAY_SCHEMA,
+                },
+            },
+        },
+        "projects": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING"},
+                    "description": STRING_ARRAY_SCHEMA,
+                    "technologies": STRING_ARRAY_SCHEMA,
+                },
+            },
+        },
+    },
+}
+
+
+JSON_FENCE_PATTERN = re.compile(
+    r"^\s*```(?:json)?\s*(.*?)\s*```\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def response_text_candidates(response):
+    """Return response text variants without logging resume content."""
+
+    candidates = []
+
+    try:
+        direct_text = response.text
+    except (AttributeError, ValueError):
+        direct_text = None
+
+    if isinstance(direct_text, str) and direct_text.strip():
+        candidates.append(direct_text)
+
+    parts = []
+
+    try:
+        parts.extend(response.parts or [])
+    except (AttributeError, ValueError, TypeError):
+        pass
+
+    try:
+        response_candidates = getattr(response, "candidates", [])
+    except (AttributeError, ValueError):
+        response_candidates = []
+
+    try:
+        response_candidates = list(response_candidates or [])
+    except TypeError:
+        response_candidates = []
+
+    for candidate in response_candidates:
+        content = getattr(candidate, "content", None)
+        content_parts = getattr(content, "parts", [])
+        try:
+            parts.extend(content_parts or [])
+        except TypeError:
+            continue
+
+    part_texts = []
+
+    for part in parts:
+        try:
+            text = getattr(part, "text", None)
+        except (AttributeError, ValueError):
+            continue
+        if isinstance(text, str) and text.strip():
+            part_texts.append(text)
+
+    candidates.extend(part_texts)
+
+    if len(part_texts) > 1:
+        candidates.append("".join(part_texts))
+
+    return list(dict.fromkeys(candidates))
+
+
+def parse_resume_response(response):
+    """Parse strict or harmlessly wrapped JSON from a Gemini response."""
+
+    decoder = json.JSONDecoder()
+
+    for response_text in response_text_candidates(response):
+        stripped = response_text.strip()
+        fenced = JSON_FENCE_PATTERN.match(stripped)
+        variants = [stripped]
+
+        if fenced:
+            variants.insert(0, fenced.group(1).strip())
+
+        for variant in variants:
+            try:
+                parsed = json.loads(variant)
+            except json.JSONDecodeError:
+                parsed = None
+
+            if isinstance(parsed, dict):
+                parsed = _unwrap_resume_object(parsed)
+                if _is_resume_object(parsed):
+                    return parsed
+
+            for index, character in enumerate(variant):
+                if character != "{":
+                    continue
+
+                try:
+                    parsed, _ = decoder.raw_decode(variant[index:])
+                except json.JSONDecodeError:
+                    continue
+
+                if isinstance(parsed, dict):
+                    parsed = _unwrap_resume_object(parsed)
+                    if _is_resume_object(parsed):
+                        return parsed
+
+    raise ResumeExtractionError(
+        "Resume extraction returned invalid JSON"
+    )
+
+
+def _unwrap_resume_object(parsed):
+    wrapper_keys = ("resume", "resume_data", "data", "result")
+
+    if len(parsed) == 1:
+        key = next(iter(parsed))
+        value = parsed[key]
+        if key in wrapper_keys and isinstance(value, dict):
+            return value
+
+    return parsed
+
+
+def _is_resume_object(parsed):
+    return bool(
+        isinstance(parsed, dict)
+        and set(parsed).intersection(EMPTY_RESUME_DATA)
+    )
 
 
 def normalize_string(
@@ -392,36 +579,28 @@ Resume content begins below.
                     "temperature": 0,
                     "response_mime_type": (
                         "application/json"
-                    )
+                    ),
+                    "response_schema": RESUME_RESPONSE_SCHEMA,
                 }
             )
 
-            if (
-                not response
-                or not response.text
-                or not response.text.strip()
-            ):
+            if not response:
 
                 raise ValueError(
                     "Gemini returned an empty response"
                 )
 
-            parsed = json.loads(
-                response.text
-            )
+            parsed = parse_resume_response(response)
 
             return normalize_resume_data(
                 parsed
             )
 
-    except json.JSONDecodeError as error:
-
-        raise RuntimeError(
-            "Resume extraction returned invalid JSON"
-        ) from error
+    except ResumeExtractionError:
+        raise
 
     except Exception as error:
 
-        raise RuntimeError(
+        raise ResumeExtractionError(
             "Resume extraction service failed"
         ) from error
