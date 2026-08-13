@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 from google.api_core import exceptions as google_exceptions
 from google.generativeai import protos
+from google.generativeai.types import generation_types
 
 from app.services import extraction_service
 
@@ -65,6 +66,36 @@ def test_extracts_valid_json_with_structured_response_schema(monkeypatch):
     assert generation_config["response_schema"] == (
         extraction_service.RESUME_RESPONSE_SCHEMA
     )
+
+
+def test_required_response_schema_is_accepted_by_installed_sdk():
+    converted = generation_types.to_generation_config_dict({
+        "response_mime_type": "application/json",
+        "response_schema": extraction_service.RESUME_RESPONSE_SCHEMA,
+    })
+
+    schema = converted["response_schema"]
+    assert set(schema.required) == set(
+        extraction_service.EMPTY_RESUME_DATA
+    )
+    assert set(schema.properties["education"].items.required) == {
+        "institution",
+        "degree",
+        "start_date",
+        "end_date",
+    }
+    assert set(schema.properties["experience"].items.required) == {
+        "title",
+        "company",
+        "start_date",
+        "end_date",
+        "description",
+    }
+    assert set(schema.properties["projects"].items.required) == {
+        "name",
+        "description",
+        "technologies",
+    }
 
 
 @pytest.mark.parametrize(
@@ -259,6 +290,58 @@ def test_diagnostics_are_timed_and_do_not_expose_content(monkeypatch):
     assert parsing["finish_reason"] == "STOP"
     assert parsing["parts_count"] == 1
     assert parsing["has_text_part"] is True
+    shape = next(
+        fields
+        for event, fields in events
+        if event == "gemini_resume_extraction_shape"
+    )
+    assert shape["skills_count"] == 2
+    assert shape["experience_count"] == 1
+    assert shape["meaningful_experience_count"] == 1
+    assert shape["projects_count"] == 1
+    assert shape["extraction_shape"] == "normal"
+    assert set(shape) == {
+        "operation",
+        "outcome",
+        "skills_count",
+        "tools_count",
+        "certifications_count",
+        "achievements_count",
+        "responsibilities_count",
+        "domain_expertise_count",
+        "leadership_experience_count",
+        "education_count",
+        "experience_count",
+        "projects_count",
+        "meaningful_experience_count",
+        "extraction_shape",
+    }
+
+
+def test_competency_only_extraction_is_classified_as_sparse(monkeypatch):
+    events = []
+    model = Mock()
+    model.generate_content.return_value = SimpleNamespace(text=json.dumps({
+        "name": "Synthetic Candidate",
+        "skills": ["Stakeholder management"],
+    }))
+    monkeypatch.setattr(extraction_service, "model", model)
+    monkeypatch.setattr(
+        extraction_service,
+        "emit_event",
+        lambda event, **fields: events.append((event, fields)),
+    )
+
+    extraction_service.extract_resume_data("Synthetic resume")
+
+    shape = next(
+        fields
+        for event, fields in events
+        if event == "gemini_resume_extraction_shape"
+    )
+    assert shape["extraction_shape"] == "sparse"
+    assert shape["skills_count"] == 1
+    assert shape["meaningful_experience_count"] == 0
 
 
 def test_retry_diagnostic_contains_only_safe_attempt_metadata(monkeypatch):

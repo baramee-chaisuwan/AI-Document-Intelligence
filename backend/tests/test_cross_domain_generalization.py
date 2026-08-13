@@ -11,6 +11,7 @@ from app.services.scoring_service import calculate_legacy_technical_score
 from tests.fixtures.cross_domain_resumes import (
     CROSS_DOMAIN_JOB_CASES,
     CROSS_DOMAIN_RESUMES,
+    SENIOR_HR_RESUME,
 )
 
 
@@ -77,6 +78,88 @@ def test_resume_extraction_prompt_is_domain_neutral(monkeypatch):
     assert "certifications" in prompt
     assert "measurable achievements" in prompt
     assert result["certifications"] == ["PMP"]
+
+
+@pytest.mark.parametrize(
+    ("domain", "expected_certification", "expected_evidence"),
+    [
+        (
+            "ai_engineer",
+            "Google Professional ML Engineer",
+            "Reduced model inference latency by 35%",
+        ),
+        (
+            "network_engineer",
+            "CCNP Enterprise",
+            "Improved network availability to 99.99%",
+        ),
+        (
+            "project_manager",
+            "PMP",
+            "Delivered a $4M program on schedule",
+        ),
+        (
+            "marketing_manager",
+            "Google Ads Certification",
+            "Increased ROAS by 42% and revenue by $1.2M",
+        ),
+        ("accountant", "CPA", "Reduced month-end close by three days"),
+    ],
+)
+def test_mocked_cross_domain_structured_responses_preserve_evidence(
+    monkeypatch,
+    domain,
+    expected_certification,
+    expected_evidence,
+):
+    payload = CROSS_DOMAIN_RESUMES[domain]
+    original_descriptions = payload["experience"][0]["description"]
+    model = Mock()
+    model.generate_content.return_value = Mock(text=json.dumps(payload))
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    result = extraction_service.extract_resume_data(
+        "Synthetic cross-domain resume"
+    )
+
+    assert expected_certification in result["certifications"]
+    assert expected_evidence in result["achievements"]
+    assert result["responsibilities"]
+    assert result["leadership_experience"]
+    assert result["experience"][0]["description"] == original_descriptions
+
+
+def test_mocked_senior_hr_response_preserves_complete_profile(monkeypatch):
+    payload = {
+        **SENIOR_HR_RESUME,
+        "certifications": ["SHRM-CP", "PHRi"],
+        "education": [{
+            "institution": "Business University",
+            "degree": "Bachelor of Human Resource Management",
+            "start_date": "",
+            "end_date": "",
+        }],
+    }
+    model = Mock()
+    model.generate_content.return_value = Mock(text=json.dumps(payload))
+    monkeypatch.setattr(extraction_service, "model", model)
+
+    result = extraction_service.extract_resume_data(
+        "Synthetic senior HR resume"
+    )
+
+    assert len(result["experience"]) == 2
+    assert result["certifications"] == ["SHRM-CP", "PHRi"]
+    assert len(result["achievements"]) == 2
+    assert result["education"][0]["degree"].startswith("Bachelor")
+    assert result["leadership_experience"]
+    assert result["responsibilities"]
+    assert result["skills"]
+    assert result["tools"]
+    assert "Reduced time-to-hire by 38%" in result["achievements"]
+    assert "Led talent acquisition and employee relations" in (
+        result["experience"][0]["description"]
+    )
 
 
 def test_analysis_accepts_evidence_supported_cross_domain_roles(monkeypatch):

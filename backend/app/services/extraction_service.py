@@ -69,6 +69,20 @@ STRING_ARRAY_SCHEMA = {
 
 RESUME_RESPONSE_SCHEMA = {
     "type": "OBJECT",
+    "required": [
+        "name",
+        "skills",
+        "tools",
+        "certifications",
+        "achievements",
+        "responsibilities",
+        "domain_expertise",
+        "leadership_experience",
+        "languages",
+        "education",
+        "experience",
+        "projects",
+    ],
     "properties": {
         "name": {"type": "STRING"},
         "skills": STRING_ARRAY_SCHEMA,
@@ -83,6 +97,12 @@ RESUME_RESPONSE_SCHEMA = {
             "type": "ARRAY",
             "items": {
                 "type": "OBJECT",
+                "required": [
+                    "institution",
+                    "degree",
+                    "start_date",
+                    "end_date",
+                ],
                 "properties": {
                     "institution": {"type": "STRING"},
                     "degree": {"type": "STRING"},
@@ -95,6 +115,13 @@ RESUME_RESPONSE_SCHEMA = {
             "type": "ARRAY",
             "items": {
                 "type": "OBJECT",
+                "required": [
+                    "title",
+                    "company",
+                    "start_date",
+                    "end_date",
+                    "description",
+                ],
                 "properties": {
                     "title": {"type": "STRING"},
                     "company": {"type": "STRING"},
@@ -108,6 +135,11 @@ RESUME_RESPONSE_SCHEMA = {
             "type": "ARRAY",
             "items": {
                 "type": "OBJECT",
+                "required": [
+                    "name",
+                    "description",
+                    "technologies",
+                ],
                 "properties": {
                     "name": {"type": "STRING"},
                     "description": STRING_ARRAY_SCHEMA,
@@ -702,6 +734,57 @@ def normalize_resume_data(
     }
 
 
+def extraction_shape_metadata(normalized):
+    """Return privacy-safe counts describing normalized extraction shape."""
+
+    list_fields = (
+        "skills",
+        "tools",
+        "certifications",
+        "achievements",
+        "responsibilities",
+        "domain_expertise",
+        "leadership_experience",
+        "education",
+        "experience",
+        "projects",
+    )
+    counts = {
+        f"{field}_count": len(normalized.get(field, []))
+        if isinstance(normalized.get(field), list)
+        else 0
+        for field in list_fields
+    }
+    meaningful_experience_count = sum(
+        bool(
+            item.get("title")
+            or item.get("company")
+            or item.get("description")
+        )
+        for item in normalized.get("experience", [])
+        if isinstance(item, dict)
+    )
+    counts["meaningful_experience_count"] = (
+        meaningful_experience_count
+    )
+
+    supporting_evidence_count = (
+        meaningful_experience_count
+        + counts["certifications_count"]
+        + counts["achievements_count"]
+        + counts["responsibilities_count"]
+        + counts["leadership_experience_count"]
+        + counts["education_count"]
+        + counts["projects_count"]
+    )
+    counts["extraction_shape"] = (
+        "sparse"
+        if supporting_evidence_count == 0
+        else "normal"
+    )
+    return counts
+
+
 def extract_resume_data(
     text
 ):
@@ -728,10 +811,30 @@ Rules:
 - Use an empty string or empty array when information is missing.
 - Preserve every work experience and every relevant project.
 - Preserve bullet points as separate array items.
+- Keep each work or project bullet in its original description array even
+  when the same evidence is also classified into a top-level array.
 - Extract evidence-supported professional competencies in skills.
 - Extract tools and technologies in tools, regardless of profession.
-- Preserve certifications, licenses, measurable achievements,
-  responsibilities, domain expertise, and leadership experience.
+- Copy explicitly stated certifications and licenses into certifications.
+- Copy quantified outcomes or other measurable achievements into
+  achievements.
+- Copy duties, ownership, and accountable work into responsibilities.
+- Copy team leadership, mentoring, supervision, and organizational leadership
+  into leadership_experience.
+- Copy profession-specific knowledge areas into domain_expertise.
+- Classification duplicates evidence; it must never remove that evidence from
+  experience[].description or projects[].description.
+- For example, keep "Reduced time-to-hire by 35%" in its experience
+  description and also include it in achievements.
+- Keep "Led a team of 5 recruiters" in its experience description and also
+  include it in leadership_experience.
+- Keep "Managed employee onboarding and policy compliance" in its experience
+  description and also include it in responsibilities.
+- Include explicitly listed credentials such as SHRM-CP, PMP, CPA, or CCNP in
+  certifications.
+- Apply these evidence rules equally to technical, operational, and business
+  professions.
+- Do not invent or infer evidence that is not explicitly stated.
 - Do not force nontechnical evidence into a technology category.
 - Extract spoken languages only in the languages field.
 
@@ -857,6 +960,9 @@ Resume content begins below.
 
                 parsed = parse_resume_response(response)
                 normalized = normalize_resume_data(parsed)
+                shape_metadata = extraction_shape_metadata(
+                    normalized
+                )
             except ResumeExtractionError as error:
                 emit_event(
                     "gemini_resume_extraction_parsing",
@@ -898,6 +1004,12 @@ Resume content begins below.
                 ),
                 response_category="valid_json",
                 **response_metadata,
+            )
+            emit_event(
+                "gemini_resume_extraction_shape",
+                operation="gemini_resume_extraction",
+                outcome="success",
+                **shape_metadata,
             )
 
             return normalized
