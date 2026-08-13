@@ -14,7 +14,7 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 
 import {
-    exportCandidatesCSV,
+    exportCandidatesExcel,
 } from "@/services/export";
 
 
@@ -45,11 +45,11 @@ export default function ExportPage() {
             setError("");
 
 
-            await exportCandidatesCSV();
+            await exportCandidatesExcel();
 
 
             setMessage(
-                "Candidate CSV exported successfully."
+                "Candidate Excel report exported successfully."
             );
 
         } catch (error) {
@@ -73,7 +73,7 @@ export default function ExportPage() {
 
         <AppLayout
             title="Export"
-            description="Download ATS candidate data as a CSV report"
+            description="Download ATS candidate data as a polished Excel report"
         >
 
             <section
@@ -139,7 +139,7 @@ export default function ExportPage() {
                         >
                             Download candidate names, levels,
                             scores, summaries, AI status, and
-                            timestamps in UTF-8 CSV format.
+                            timestamps in a formatted Excel workbook.
                         </p>
 
                     </div>
@@ -165,7 +165,7 @@ export default function ExportPage() {
                             text-gray-900
                         "
                     >
-                        CSV export includes
+                        Excel export includes
                     </p>
 
                     <ul
@@ -179,11 +179,11 @@ export default function ExportPage() {
                         "
                     >
                         <li>• Candidate identity and level</li>
-                        <li>• Final, rule, and AI scores</li>
+                        <li>• Versioned profile, rule, and AI scores</li>
                         <li>• AI processing status</li>
                         <li>• Candidate summary</li>
-                        <li>• Created and updated timestamps</li>
-                        <li>• UTF-8 support for Thai text</li>
+                        <li>• Profile and legacy score breakdowns</li>
+                        <li>• Filters, frozen headers, and score formatting</li>
                     </ul>
 
                 </div>
@@ -219,14 +219,14 @@ export default function ExportPage() {
                                 size={18}
                                 className="animate-spin"
                             />
-                            Preparing CSV...
+                            Preparing Excel...
                         </>
 
                     ) : (
 
                         <>
                             <Download size={18} />
-                            Export CSV
+                            Export Candidates (.xlsx)
                         </>
 
                     )}

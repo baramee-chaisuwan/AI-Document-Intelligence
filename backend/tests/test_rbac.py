@@ -160,6 +160,7 @@ def role_headers():
         ("get", "/dashboard/level-distribution", None),
         ("get", "/dashboard/recent-candidates", None),
         ("get", "/export/csv", None),
+        ("get", "/export/xlsx", None),
         ("delete", "/candidates/999", None),
         (
             "put",
@@ -231,7 +232,8 @@ def test_invalid_token_returns_401(client):
                 "candidate_level": "Senior"
             }
         ),
-        ("get", "/export/csv", None)
+        ("get", "/export/csv", None),
+        ("get", "/export/xlsx", None),
     ]
 )
 def test_recruiter_cannot_access_admin_endpoints(
@@ -258,7 +260,7 @@ def test_admin_can_access_admin_endpoints(
 ):
 
     export_response = client.get(
-        "/export/csv",
+        "/export/xlsx",
         headers=role_headers["admin"]
     )
 

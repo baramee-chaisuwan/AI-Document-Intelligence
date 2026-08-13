@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -16,11 +16,55 @@ from app.api.dependencies import (
 )
 from app.database.database import get_db
 from app.database.models import Candidate
+from app.services.excel_export_service import (
+    EXCEL_CONTENT_TYPE,
+    build_candidates_workbook,
+)
 
 router = APIRouter(
     prefix="/export",
     tags=["Export"]
 )
+
+
+@router.get(
+    "/xlsx",
+    dependencies=[Depends(get_current_admin_user)],
+    summary="Export candidates to Excel",
+    description="Downloads all candidates as a formatted Excel workbook.",
+)
+def export_candidates_excel(
+    db: Session = Depends(get_db),
+):
+    candidates = (
+        db.query(Candidate)
+        .order_by(
+            Candidate.skill_score.desc(),
+            Candidate.id.asc(),
+        )
+        .all()
+    )
+    generated_at = datetime.now(timezone.utc)
+    output = build_candidates_workbook(
+        candidates,
+        generated_at=generated_at,
+    )
+    filename = (
+        "ATS_Candidates_"
+        + generated_at.strftime("%Y-%m-%d_%H-%M")
+        + ".xlsx"
+    )
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type=EXCEL_CONTENT_TYPE,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+            ),
+            "Cache-Control": "no-store",
+        },
+    )
 
 DANGEROUS_CSV_PREFIXES = (
     "=",

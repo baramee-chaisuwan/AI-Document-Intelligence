@@ -1,14 +1,19 @@
 import axios from "axios";
 
 import { api } from "./api";
+import { resolveExportFilename } from "../lib/export-download";
 
 
-export async function exportCandidatesCSV(): Promise<void> {
+const EXCEL_CONTENT_TYPE =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+
+export async function exportCandidatesExcel(): Promise<void> {
 
     try {
 
         const response = await api.get(
-            "/export/csv",
+            "/export/xlsx",
             {
                 responseType: "blob",
             }
@@ -18,25 +23,15 @@ export async function exportCandidatesCSV(): Promise<void> {
         const disposition =
             response.headers["content-disposition"];
 
-        let filename = "candidates.csv";
-
-
-        const match =
-            disposition?.match(
-                /filename="?([^"]+)"?/
-            );
-
-        if (match?.[1]) {
-
-            filename = match[1];
-
-        }
+        const filename = resolveExportFilename(
+            disposition
+        );
 
 
         const blob = new Blob(
             [response.data],
             {
-                type: "text/csv",
+                type: EXCEL_CONTENT_TYPE,
             }
         );
 
